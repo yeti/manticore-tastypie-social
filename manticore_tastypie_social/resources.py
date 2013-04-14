@@ -44,7 +44,7 @@ class CommentResource(ManticoreModelResource):
 
 
 class CreateFollowResource(ManticoreModelResource):
-    user_profile = fields.ToOneField(UserProfileResource, 'user_profile', full=True)
+    user_profile = fields.ToOneField(UserProfileResource, 'user_profile')
 
     class Meta:
         queryset = Follow.objects.all()
@@ -57,8 +57,8 @@ class CreateFollowResource(ManticoreModelResource):
 
 
 class FollowResource(ManticoreModelResource):
-    user_profile = fields.ToOneField(UserProfileResource, 'user_profile', full=True)
     name = fields.CharField(attribute="name")
+    object_type = fields.CharField(attribute="object_type")
 
     class Meta:
         queryset = Follow.objects.all()

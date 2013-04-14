@@ -95,6 +95,10 @@ class Follow(CoreModel):
     user_profile = models.ForeignKey(settings.AUTH_PROFILE_MODULE)
 
     @property
+    def object_type(self):
+        return self.content_type.name
+
+    @property
     def name(self):
         #object must be registered with FollowableModel
         return self.content_object.identifier()
