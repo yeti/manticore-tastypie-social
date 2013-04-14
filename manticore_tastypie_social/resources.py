@@ -4,7 +4,7 @@ from manticore_tastypie_core.manticore_tastypie_core.resources import ManticoreM
 from manticore_tastypie_social.manticore_tastypie_social.models import Tag, Comment, Follow, Like, Flag
 from manticore_tastypie_user.manticore_tastypie_user.authentication import ExpireApiKeyAuthentication
 from manticore_tastypie_user.manticore_tastypie_user.authorization import UserProfileObjectsOnlyAuthorization
-from manticore_tastypie_user.manticore_tastypie_user.resources import UserProfileResource
+from manticore_tastypie_user.manticore_tastypie_user.resources import UserProfileResource, MinimalUserProfileResource
 
 
 class TagResource(ManticoreModelResource):
@@ -18,6 +18,7 @@ class TagResource(ManticoreModelResource):
 
 
 class CommentResource(ManticoreModelResource):
+    user_profile = fields.ToOneField(MinimalUserProfileResource, 'user_profile', full=True)
 
     class Meta:
         queryset = Comment.objects.all()
