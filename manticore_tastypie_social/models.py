@@ -1,3 +1,4 @@
+import abc
 import re
 from django.conf import settings
 from django.contrib.contenttypes import generic
@@ -7,14 +8,30 @@ from django.db.models.signals import post_save
 from mezzanine.accounts import get_profile_model
 from manticore_django.manticore_django.models import CoreModel
 
-# UserProfile = get_profile_model()
+
+class FollowableModel():
+    """
+    Abstract class that used as interface
+    This class makes sure that child classes have
+    my_method implemented
+    """
+    __metaclass__ = abc.ABCMeta
+
+    @abc.abstractmethod
+    def identifier(self):
+        return
 
 
 class Tag(CoreModel):
     name = models.CharField(max_length=75, unique=True)
 
+    def identifier(self):
+        return u"#%s" % self.name
+
     def __unicode__(self):
         return u"%s" % self.name
+
+FollowableModel.register(Tag)
 
 
 # Expects tags is stored in a field called 'related_tags' on implementing model and it has a parameter called TAG_FIELD to be parsed
@@ -67,3 +84,21 @@ class Comment(CoreModel):
 #                     pass
 #
 # post_save.connect(comment_post_save, sender=Comment)
+
+
+# Allows a user to 'follow' objects
+class Follow(CoreModel):
+    content_type = models.ForeignKey(ContentType)
+    object_id = models.PositiveIntegerField()
+    content_object = generic.GenericForeignKey()
+
+    user_profile = models.ForeignKey(settings.AUTH_PROFILE_MODULE)
+
+    @property
+    def name(self):
+        #object must be registered with FollowableModel
+        return self.content_object.identifier()
+
+    class Meta:
+        unique_together = (("user_profile", "content_type", "object_id"),)
+        ordering = ['-created']
