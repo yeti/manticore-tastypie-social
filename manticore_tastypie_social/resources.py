@@ -1,7 +1,7 @@
 from tastypie import fields
 from tastypie.authorization import Authorization
 from manticore_tastypie_core.manticore_tastypie_core.resources import ManticoreModelResource
-from manticore_tastypie_social.manticore_tastypie_social.models import Tag, Comment, Follow
+from manticore_tastypie_social.manticore_tastypie_social.models import Tag, Comment, Follow, Like, Flag
 from manticore_tastypie_user.manticore_tastypie_user.authentication import ExpireApiKeyAuthentication
 from manticore_tastypie_user.manticore_tastypie_user.authorization import UserProfileObjectsOnlyAuthorization
 from manticore_tastypie_user.manticore_tastypie_user.resources import UserProfileResource
@@ -67,3 +67,29 @@ class FollowResource(ManticoreModelResource):
         authentication = ExpireApiKeyAuthentication()
         resource_name = "follow"
         object_name = "follow"
+
+
+class LikeResource(ManticoreModelResource):
+    user_profile = fields.ToOneField(UserProfileResource, 'user_profile')
+
+    class Meta:
+        queryset = Like.objects.all()
+        allowed_methods = ['post']
+        authorization = UserProfileObjectsOnlyAuthorization()
+        authentication = ExpireApiKeyAuthentication()
+        resource_name = "like"
+        always_return_data = True
+        object_name = "like"
+
+
+class FlagResource(ManticoreModelResource):
+    user_profile = fields.ToOneField(UserProfileResource, 'user_profile')
+
+    class Meta:
+        queryset = Flag.objects.all()
+        allowed_methods = ['post']
+        authorization = UserProfileObjectsOnlyAuthorization()
+        authentication = ExpireApiKeyAuthentication()
+        resource_name = "flag"
+        always_return_data = True
+        object_name = "flag"

@@ -1,11 +1,8 @@
 import abc
-import re
 from django.conf import settings
 from django.contrib.contenttypes import generic
 from django.contrib.contenttypes.models import ContentType
 from django.db import models
-from django.db.models.signals import post_save
-from mezzanine.accounts import get_profile_model
 from manticore_django.manticore_django.models import CoreModel
 
 
@@ -106,3 +103,26 @@ class Follow(CoreModel):
     class Meta:
         unique_together = (("user_profile", "content_type", "object_id"),)
         ordering = ['-created']
+
+
+class Like(CoreModel):
+    content_type = models.ForeignKey(ContentType)
+    object_id = models.PositiveIntegerField()
+    content_object = generic.GenericForeignKey()
+
+    user_profile = models.ForeignKey(settings.AUTH_PROFILE_MODULE)
+
+    class Meta:
+        unique_together = (("user_profile", "content_type", "object_id"),)
+
+
+# Flag an object for review
+class Flag(CoreModel):
+    content_type = models.ForeignKey(ContentType)
+    object_id = models.PositiveIntegerField()
+    content_object = generic.GenericForeignKey()
+
+    user_profile = models.ForeignKey(settings.AUTH_PROFILE_MODULE)
+
+    class Meta:
+        unique_together = (("user_profile", "content_type", "object_id"),)
