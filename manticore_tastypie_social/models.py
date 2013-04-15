@@ -86,7 +86,7 @@ class Comment(CoreModel):
 # Allows a user to 'follow' objects
 class Follow(CoreModel):
     content_type = models.ForeignKey(ContentType)
-    object_id = models.PositiveIntegerField()
+    object_id = models.CharField(max_length=250)
     content_object = generic.GenericForeignKey()
 
     user_profile = models.ForeignKey(settings.AUTH_PROFILE_MODULE)
