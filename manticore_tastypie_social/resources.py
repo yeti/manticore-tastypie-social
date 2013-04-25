@@ -10,11 +10,15 @@ from manticore_tastypie_user.manticore_tastypie_user.resources import UserProfil
 class TagResource(ManticoreModelResource):
 
     class Meta:
+        allowed_methods = ['get']
         queryset = Tag.objects.all()
+        authorization = Authorization()
+        authentication = ExpireApiKeyAuthentication()
         fields = ['id', 'name']
         resource_name = "tag"
         object_name = "tag"
         include_resource_uri = False
+        filtering = {'name': ['exact'],}
 
 
 class CommentResource(ManticoreModelResource):
