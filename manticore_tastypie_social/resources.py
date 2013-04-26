@@ -72,6 +72,9 @@ class FollowResource(ManticoreModelResource):
         authentication = ExpireApiKeyAuthentication()
         resource_name = "follow"
         object_name = "follow"
+        filtering = {
+            'object_id': ['exact'],
+        }
 
 
 class LikeResource(ManticoreModelResource):
