@@ -1,7 +1,10 @@
+from django.conf import settings
 from tastypie import fields
 from tastypie.authorization import Authorization
+from tastypie.exceptions import BadRequest
+import urbanairship
 from manticore_tastypie_core.manticore_tastypie_core.resources import ManticoreModelResource
-from manticore_tastypie_social.manticore_tastypie_social.models import Tag, Comment, Follow, Like, Flag
+from manticore_tastypie_social.manticore_tastypie_social.models import Tag, Comment, Follow, Like, Flag, AirshipToken
 from manticore_tastypie_user.manticore_tastypie_user.authentication import ExpireApiKeyAuthentication
 from manticore_tastypie_user.manticore_tastypie_user.authorization import UserProfileObjectsOnlyAuthorization
 from manticore_tastypie_user.manticore_tastypie_user.resources import UserProfileResource, MinimalUserProfileResource
@@ -101,3 +104,33 @@ class FlagResource(ManticoreModelResource):
         resource_name = "flag"
         always_return_data = True
         object_name = "flag"
+
+
+class AirshipTokenResource(ManticoreModelResource):
+
+    class Meta:
+        queryset = AirshipToken.objects.all()
+        allowed_methods = ['get', 'post']
+        authorization = UserProfileObjectsOnlyAuthorization()
+        authentication = ExpireApiKeyAuthentication()
+        resource_name = "airship_token"
+        always_return_data = True
+        object_name = "airship_token"
+
+    def obj_create(self, bundle, **kwargs):
+        if 'token' in bundle.data:
+            airship = urbanairship.Airship(settings.AIRSHIP_APP_KEY, settings.AIRSHIP_APP_MASTER_SECRET)
+            try:
+                airship.register(bundle.data['token'], alias=bundle.request.user.email)
+
+                # Delete other usages of this token (i.e. multiple accounts on one device)
+                AirshipToken.objects.filter(token=bundle.data['token']).delete()
+
+                bundle.obj = AirshipToken(user=bundle.request.user.get_profile(), token=bundle.data['token'])
+                bundle.obj.save()
+            except urbanairship.AirshipFailure:
+                raise BadRequest("Failed Authentication")
+
+            return bundle
+        else:
+            raise BadRequest("Missing token")

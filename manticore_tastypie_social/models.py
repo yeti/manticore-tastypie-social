@@ -3,8 +3,8 @@ from django.conf import settings
 from django.contrib.contenttypes import generic
 from django.contrib.contenttypes.models import ContentType
 from django.db import models
+from mezzanine.accounts import get_profile_model
 from manticore_django.manticore_django.models import CoreModel
-
 
 class FollowableModel():
     """
@@ -126,3 +126,10 @@ class Flag(CoreModel):
 
     class Meta:
         unique_together = (("user_profile", "content_type", "object_id"),)
+
+
+# Stores user tokens from Urban Airship
+class AirshipToken(CoreModel):
+    user_profile = models.ForeignKey(settings.AUTH_PROFILE_MODULE, unique=True)
+    token = models.CharField(max_length=100)
+    expired = models.BooleanField(default=False)
