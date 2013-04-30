@@ -3,8 +3,12 @@ from django.conf import settings
 from django.contrib.contenttypes import generic
 from django.contrib.contenttypes.models import ContentType
 from django.db import models
+from django.db.models.signals import post_save
 from mezzanine.accounts import get_profile_model
+from model_utils import Choices
+import urbanairship
 from manticore_django.manticore_django.models import CoreModel
+from django.utils.translation import ugettext_lazy as _
 
 class FollowableModel():
     """
@@ -45,13 +49,12 @@ def relate_tags(sender, **kwargs):
                 kwargs['instance'].related_tags.add(tag)
                 changed = True
         elif word.startswith("@"):
-            #TODO: notifications
-            pass
-            # try:
-            #     user_profile = UserProfile.objects.get(user__username=word.replace("@", ""))
-            #     create_notification(user_profile, self.user, self.pk, Notification.TYPE_MENTION)
-            # except UserProfile.DoesNotExist:
-            #     pass
+            UserProfile = get_profile_model()
+            try:
+                receiver = UserProfile.objects.get(user__username=word.replace("@", ""))
+                create_notification(receiver, kwargs['instance'].user_profile, kwargs['instance'], Notification.TYPES.mention)
+            except UserProfile.DoesNotExist:
+                pass
 
     if changed:
         kwargs['instance'].save()
@@ -68,19 +71,20 @@ class Comment(CoreModel):
     class Meta:
         ordering = ['-created']
 
-#TODO: Add @ mention notifications
-# def comment_post_save(sender, **kwargs):
-#     if kwargs['created']:
-#         comment = kwargs['instance']
-#         for word in comment.description.split():
-#             if word.startswith("@"):
-#                 try:
-#                     user_profile = UserProfile.objects.get(user__username=word.replace("@", ""))
-#                     create_notification(user_profile, comment.user, comment.blurt.pk, Notification.TYPE_MENTION)
-#                 except UserProfile.DoesNotExist:
-#                     pass
-#
-# post_save.connect(comment_post_save, sender=Comment)
+
+def comment_post_save(sender, **kwargs):
+    if kwargs['created']:
+        comment = kwargs['instance']
+        for word in comment.description.split():
+            if word.startswith("@"):
+                UserProfile = get_profile_model()
+                try:
+                    receiver = UserProfile.objects.get(user__username=word.replace("@", ""))
+                    create_notification(receiver, comment.user_profile, comment.content_object, Notification.TYPES.mention)
+                except UserProfile.DoesNotExist:
+                    pass
+
+post_save.connect(comment_post_save, sender=Comment)
 
 
 # Allows a user to 'follow' objects
@@ -133,3 +137,91 @@ class AirshipToken(CoreModel):
     user_profile = models.ForeignKey(settings.AUTH_PROFILE_MODULE, unique=True)
     token = models.CharField(max_length=100)
     expired = models.BooleanField(default=False)
+
+
+#TODO: Need to abstract 'report' from here all text and logic here
+class Notification(CoreModel):
+    TYPES = Choices(
+        (0, 'follow', _('started following you')),
+        (1, 'like', _('liked your report')),
+        (2, 'comment', _('commented on your report')),
+        (3, 'shared', _('shared your report')),
+        (4, 'mention', _('mentioned you')),
+        (5, 'trending', _('your report is trending')),
+        (6, 'friend', _('your friend just signed up')),
+    )
+    notification_type = models.PositiveSmallIntegerField(choices=TYPES)
+    user_profile = models.ForeignKey(settings.AUTH_PROFILE_MODULE, related_name="receiver")
+    reporter = models.ForeignKey(settings.AUTH_PROFILE_MODULE, related_name="reporter", null=True, blank=True)
+
+    content_type = models.ForeignKey(ContentType)
+    object_id = models.PositiveIntegerField()
+    content_object = generic.GenericForeignKey()
+
+    def message(self):
+        return unicode(Notification.TYPES[self.notification_type][1])
+
+    def push_message(self):
+        # If this is a comment on an object the receiving user doesn't own, change the default message
+        if self.type == self.TYPES.comment and self.content_object.user_profile != self.user_profile:
+            message = "@%s commented on @%s's report" % (self.reporter.user.username, self.content_object.user_profile.user.username)
+        elif self.type == self.TYPES.trending:
+            message = "Your report is trending!"
+        elif self.type == self.TYPES.friend:
+            message = "Your friend just signed up as @%s" % self.reporter.user.username
+        else:
+            message = "@%s %s" % (self.reporter.user.username, self.message())
+
+        return message
+
+    def name(self):
+        return u"%s" % Notification.TYPES._full[self.notification_type][1]
+
+    def display_name(self):
+        return u"%s" % self.get_notification_type_display()
+
+def create_notification(receiver, reporter, content_object, notification_type):
+    # If the receiver of this notification is the same as the reporter or if the user has blocked this type, then don't create
+    if receiver == reporter or not NotificationSetting.objects.get(notification_type=notification_type, user_profile=receiver).allow:
+        return
+
+    notification = Notification.objects.create(user_profile=receiver,
+                                               reporter=reporter,
+                                               content_object=content_object,
+                                               notification_type=notification_type)
+    notification.save()
+
+    if AirshipToken.objects.filter(user_profile=receiver, expired=False).exists():
+        try:
+            device_tokens = AirshipToken.objects.filter(user_profile=receiver, expired=False).values_list('token', flat=True)
+            airship = urbanairship.Airship(settings.AIRSHIP_APP_KEY, settings.AIRSHIP_APP_MASTER_SECRET)
+            airship.push({'aps': {'alert': notification.push_message(), 'badge': '+1'}}, device_tokens=device_tokens)
+        except urbanairship.AirshipFailure:
+            pass
+
+
+class NotificationSetting(CoreModel):
+    notification_type = models.PositiveSmallIntegerField(choices=Notification.TYPES)
+    user_profile = models.ForeignKey(settings.AUTH_PROFILE_MODULE)
+    allow = models.BooleanField(default=True)
+
+    class Meta:
+        unique_together = ('notification_type', 'user_profile')
+
+    def name(self):
+        return u"%s" % Notification.TYPES._full[self.notification_type][1]
+
+    def display_name(self):
+        return u"%s" % self.get_notification_type_display()
+
+
+def create_notifications(sender, **kwargs):
+    sender_name = "%s.%s" % (sender._meta.app_label, sender._meta.object_name)
+    if sender_name.lower() != settings.AUTH_PROFILE_MODULE.lower():
+        return
+
+    if kwargs['created']:
+        user_profile = kwargs['instance']
+        NotificationSetting.objects.bulk_create([NotificationSetting(user_profile=user_profile, notification_type=pk) for pk, name in Notification.TYPES])
+
+post_save.connect(create_notifications)

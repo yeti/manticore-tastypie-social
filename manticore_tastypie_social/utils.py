@@ -5,7 +5,7 @@ import foursquare
 import oauth2
 from social_auth.db.django_models import UserSocialAuth
 from tastypie.exceptions import BadRequest
-from manticore_tastypie_social.manticore_tastypie_social.resources import TagResource, FollowResource, AirshipTokenResource
+from manticore_tastypie_social.manticore_tastypie_social.resources import TagResource, FollowResource, AirshipTokenResource, NotificationSettingResource
 
 
 # Registers this library's resources
@@ -13,6 +13,7 @@ def register_api(api):
     api.register(TagResource())
     api.register(FollowResource())
     api.register(AirshipTokenResource())
+    api.register(NotificationSettingResource())
     return api
 
 

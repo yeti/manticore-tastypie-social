@@ -1,13 +1,18 @@
+from datetime import timedelta
 from django.conf import settings
+from mezzanine.accounts import get_profile_model
 from tastypie import fields
 from tastypie.authorization import Authorization
 from tastypie.exceptions import BadRequest
+from tastypie.utils import now
 import urbanairship
 from manticore_tastypie_core.manticore_tastypie_core.resources import ManticoreModelResource
-from manticore_tastypie_social.manticore_tastypie_social.models import Tag, Comment, Follow, Like, Flag, AirshipToken
+from manticore_tastypie_social.manticore_tastypie_social.models import Tag, Comment, Follow, Like, Flag, AirshipToken, NotificationSetting, Notification
 from manticore_tastypie_user.manticore_tastypie_user.authentication import ExpireApiKeyAuthentication
 from manticore_tastypie_user.manticore_tastypie_user.authorization import UserProfileObjectsOnlyAuthorization
 from manticore_tastypie_user.manticore_tastypie_user.resources import UserProfileResource, MinimalUserProfileResource
+
+UserProfile = get_profile_model()
 
 
 class TagResource(ManticoreModelResource):
@@ -134,3 +139,48 @@ class AirshipTokenResource(ManticoreModelResource):
             return bundle
         else:
             raise BadRequest("Missing token")
+
+
+class NotificationSettingResource(ManticoreModelResource):
+    name = fields.CharField(attribute='name')
+    display_name = fields.CharField(attribute='display_name')
+
+    class Meta:
+        queryset = NotificationSetting.objects.all()
+        allowed_methods = ['get', 'patch']
+        authorization = UserProfileObjectsOnlyAuthorization()
+        authentication = ExpireApiKeyAuthentication()
+        resource_name = "notification_setting"
+        always_return_data = True
+        object_name = "notification_setting"
+        fields = ['id', 'allow', 'name', 'display_name']
+
+
+class NotificationResource(ManticoreModelResource):
+    name = fields.CharField(attribute='name')
+    display_name = fields.CharField(attribute='display_name')
+    reporter = fields.ToOneField(UserProfileResource, 'reporter', null=True, full=True)
+
+    class Meta:
+        queryset = Notification.objects.all()
+        allowed_methods = ['get']
+        authorization = UserProfileObjectsOnlyAuthorization()
+        authentication = ExpireApiKeyAuthentication()
+        resource_name = "notification"
+        object_name = "notification"
+        fields = ['id', 'created', 'name', 'display_name', 'reporter']
+
+    def get_object_list(self, request=None, **kwargs):
+        date = now() - timedelta(days=settings.NOTIFICATION_WINDOW_HOURS)
+        return super(NotificationResource, self).get_object_list(request).filter(created__gte=date)
+
+    # Rename our target_object to either report or user_profile appropriately depending on its type
+    def alter_list_data_to_serialize(self, request, data):
+        for bundle in data['objects']:
+            if isinstance(bundle.obj.content_object, UserProfile):
+                bundle.data['user_profile'] = bundle.data['target_object']
+                del bundle.data['target_object']
+            else:
+                bundle.data['report'] = bundle.data['target_object']
+                del bundle.data['target_object']
+        return super(NotificationResource, self).alter_list_data_to_serialize(request, data)
