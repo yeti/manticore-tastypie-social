@@ -180,6 +180,9 @@ class Notification(CoreModel):
     def display_name(self):
         return u"%s" % self.get_notification_type_display()
 
+    class Meta:
+        ordering = ['-created']
+
 def create_notification(receiver, reporter, content_object, notification_type):
     # If the receiver of this notification is the same as the reporter or if the user has blocked this type, then don't create
     if receiver == reporter or not NotificationSetting.objects.get(notification_type=notification_type, user_profile=receiver).allow:
