@@ -22,12 +22,19 @@ class FollowableModel():
     def identifier(self):
         return
 
+    @abc.abstractmethod
+    def type(self):
+        return
+
 
 class Tag(CoreModel):
     name = models.CharField(max_length=75, unique=True)
 
     def identifier(self):
         return u"#%s" % self.name
+
+    def type(self):
+        return u"tag"
 
     def __unicode__(self):
         return u"%s" % self.name
