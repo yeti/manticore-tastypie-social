@@ -139,7 +139,7 @@ class AirshipToken(CoreModel):
     expired = models.BooleanField(default=False)
 
 
-#TODO: Need to abstract 'report' from here all text and logic here
+#TODO: Need to abstract 'report' out
 class Notification(CoreModel):
     TYPES = Choices(
         (0, 'follow', _('started following you')),
@@ -228,3 +228,37 @@ def create_notifications(sender, **kwargs):
         NotificationSetting.objects.bulk_create([NotificationSetting(user_profile=user_profile, notification_type=pk) for pk, name in Notification.TYPES])
 
 post_save.connect(create_notifications)
+
+
+#TODO: Need to abstract out 'report'
+class FriendAction(CoreModel):
+    TYPES = Choices(
+        (0, 'follow', _('is following')),
+        (1, 'like', _('liked a report')),
+        (2, 'comment', _('commented on a report')),
+    )
+    action_type = models.PositiveSmallIntegerField(choices=TYPES)
+    user_profile = models.ForeignKey(settings.AUTH_PROFILE_MODULE)
+
+    content_type = models.ForeignKey(ContentType)
+    object_id = models.PositiveIntegerField()
+    content_object = generic.GenericForeignKey()
+
+    def message(self):
+        return unicode(Notification.TYPES[self.action_type][1])
+
+    def name(self):
+        return u"%s" % Notification.TYPES._full[self.action_type][1]
+
+    def display_name(self):
+        return u"%s" % self.get_action_type_display()
+
+    class Meta:
+        ordering = ['-created']
+
+
+def create_friend_action(user_profile, content_object, action_type):
+    friend_action = FriendAction.objects.create(user_profile=user_profile,
+                                                content_object=content_object,
+                                                action_type=action_type)
+    friend_action.save()
