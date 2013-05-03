@@ -124,22 +124,22 @@ class AirshipTokenResource(ManticoreModelResource):
         object_name = "airship_token"
 
     def obj_create(self, bundle, **kwargs):
-        if 'token' in bundle.data:
-            airship = urbanairship.Airship(settings.AIRSHIP_APP_KEY, settings.AIRSHIP_APP_MASTER_SECRET)
-            try:
-                airship.register(bundle.data['token'], alias=bundle.request.user.email)
+        # if 'token' in bundle.data:
+        airship = urbanairship.Airship(settings.AIRSHIP_APP_KEY, settings.AIRSHIP_APP_MASTER_SECRET)
+            # try:
+        airship.register(bundle.data['token'], alias=bundle.request.user.email)
 
-                # Delete other usages of this token (i.e. multiple accounts on one device)
-                AirshipToken.objects.filter(token=bundle.data['token']).delete()
+        # Delete other usages of this token (i.e. multiple accounts on one device)
+        AirshipToken.objects.filter(token=bundle.data['token']).delete()
 
-                bundle.obj = AirshipToken(user=bundle.request.user.get_profile(), token=bundle.data['token'])
-                bundle.obj.save()
-            except urbanairship.AirshipFailure:
-                raise BadRequest("Failed Authentication")
+        bundle.obj = AirshipToken(user=bundle.request.user.get_profile(), token=bundle.data['token'])
+        bundle.obj.save()
+            # except urbanairship.AirshipFailure:
+            #     raise BadRequest("Failed Authentication")
 
-            return bundle
-        else:
-            raise BadRequest("Missing token")
+        return bundle
+        # else:
+        #     raise BadRequest("Missing token")
 
 
 class NotificationSettingResource(ManticoreModelResource):
