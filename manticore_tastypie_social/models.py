@@ -203,7 +203,7 @@ def create_notification(receiver, reporter, content_object, notification_type):
 
     if AirshipToken.objects.filter(user_profile=receiver, expired=False).exists():
         try:
-            device_tokens = AirshipToken.objects.filter(user_profile=receiver, expired=False).values_list('token', flat=True)
+            device_tokens = list(AirshipToken.objects.filter(user_profile=receiver, expired=False).values_list('token', flat=True))
             airship = urbanairship.Airship(settings.AIRSHIP_APP_KEY, settings.AIRSHIP_APP_MASTER_SECRET)
             airship.push({'aps': {'alert': notification.push_message(), 'badge': '+1'}}, device_tokens=device_tokens)
         except urbanairship.AirshipFailure:
