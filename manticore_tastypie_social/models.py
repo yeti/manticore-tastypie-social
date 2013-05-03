@@ -170,11 +170,11 @@ class Notification(CoreModel):
 
     def push_message(self):
         # If this is a comment on an object the receiving user doesn't own, change the default message
-        if self.type == self.TYPES.comment and self.content_object.user_profile != self.user_profile:
+        if self.notification_type == self.TYPES.comment and self.content_object.user_profile != self.user_profile:
             message = "@%s commented on @%s's report" % (self.reporter.user.username, self.content_object.user_profile.user.username)
-        elif self.type == self.TYPES.trending:
+        elif self.notification_type == self.TYPES.trending:
             message = "Your report is trending!"
-        elif self.type == self.TYPES.friend:
+        elif self.notification_type == self.TYPES.friend:
             message = "Your friend just signed up as @%s" % self.reporter.user.username
         else:
             message = "@%s %s" % (self.reporter.user.username, self.message())
