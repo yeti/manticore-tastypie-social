@@ -127,7 +127,7 @@ class AirshipTokenResource(ManticoreModelResource):
         # if 'token' in bundle.data:
         airship = urbanairship.Airship(settings.AIRSHIP_APP_KEY, settings.AIRSHIP_APP_MASTER_SECRET)
             # try:
-        airship.register(bundle.data['token'], alias=bundle.request.user.email)
+        airship.register(bundle.data['token'], alias="%s:%s" % (bundle.request.user.pk, bundle.request.user.username))
 
         # Delete other usages of this token (i.e. multiple accounts on one device)
         AirshipToken.objects.filter(token=bundle.data['token']).delete()
