@@ -269,3 +269,8 @@ def create_friend_action(user_profile, content_object, action_type):
                                                 content_object=content_object,
                                                 action_type=action_type)
     friend_action.save()
+
+
+# Currently available social providers
+class SocialProvider(CoreModel):
+    name = models.CharField(max_length=20)

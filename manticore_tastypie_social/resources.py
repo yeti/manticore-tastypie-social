@@ -2,12 +2,12 @@ from datetime import timedelta
 from django.conf import settings
 from mezzanine.accounts import get_profile_model
 from tastypie import fields
-from tastypie.authorization import Authorization
+from tastypie.authorization import Authorization, ReadOnlyAuthorization
 from tastypie.exceptions import BadRequest
 from tastypie.utils import now
 import urbanairship
 from manticore_tastypie_core.manticore_tastypie_core.resources import ManticoreModelResource
-from manticore_tastypie_social.manticore_tastypie_social.models import Tag, Comment, Follow, Like, Flag, AirshipToken, NotificationSetting, Notification, create_friend_action, FriendAction
+from manticore_tastypie_social.manticore_tastypie_social.models import Tag, Comment, Follow, Like, Flag, AirshipToken, NotificationSetting, Notification, create_friend_action, FriendAction, SocialProvider
 from manticore_tastypie_user.manticore_tastypie_user.authentication import ExpireApiKeyAuthentication
 from manticore_tastypie_user.manticore_tastypie_user.authorization import UserProfileObjectsOnlyAuthorization
 from manticore_tastypie_user.manticore_tastypie_user.resources import UserProfileResource, MinimalUserProfileResource
@@ -193,3 +193,16 @@ class FriendActionResource(ManticoreModelResource):
     def get_object_list(self, request=None, **kwargs):
         date = now() - timedelta(days=settings.NOTIFICATION_WINDOW_HOURS)
         return super(FriendActionResource, self).get_object_list(request).filter(created__gte=date)
+
+
+class SocialProviderResource(ManticoreModelResource):
+
+    class Meta:
+        queryset = SocialProvider.objects.all()
+        allowed_methods = ['get']
+        authorization = Authorization()
+        authentication = ExpireApiKeyAuthentication()
+        resource_name = "social_provider"
+        object_name = "social_provider"
+        detail_uri_name = 'name'
+        fields = ['name']
