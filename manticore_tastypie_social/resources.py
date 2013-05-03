@@ -132,7 +132,7 @@ class AirshipTokenResource(ManticoreModelResource):
         # Delete other usages of this token (i.e. multiple accounts on one device)
         AirshipToken.objects.filter(token=bundle.data['token']).delete()
 
-        bundle.obj = AirshipToken(user=bundle.request.user.get_profile(), token=bundle.data['token'])
+        bundle.obj = AirshipToken(user_profile=bundle.request.user.get_profile(), token=bundle.data['token'])
         bundle.obj.save()
             # except urbanairship.AirshipFailure:
             #     raise BadRequest("Failed Authentication")
