@@ -1,4 +1,5 @@
 import abc
+import re
 from django.conf import settings
 from django.contrib.contenttypes import generic
 from django.contrib.contenttypes.models import ContentType
@@ -44,27 +45,28 @@ FollowableModel.register(Tag)
 
 # Expects tags is stored in a field called 'related_tags' on implementing model and it has a parameter called TAG_FIELD to be parsed
 def relate_tags(sender, **kwargs):
-    if kwargs['update_fields'] and 'related_tags' not in kwargs['update_fields']:
+    # If we're saving related_tags, don't save again so we avoid duplicating notifications
+    if kwargs['update_fields'] and 'related_tags' in kwargs['update_fields']:
         return
 
     changed = False
     message = getattr(kwargs['instance'], sender.TAG_FIELD, '')
-    for word in message.split():
-        if word.startswith("#"):
-            tag, created = Tag.objects.get_or_create(name=word[1:])
-            if tag not in kwargs['instance'].related_tags.all():
-                kwargs['instance'].related_tags.add(tag)
-                changed = True
-        elif word.startswith("@"):
-            UserProfile = get_profile_model()
-            try:
-                receiver = UserProfile.objects.get(user__username=word.replace("@", ""))
-                create_notification(receiver, kwargs['instance'].user_profile, kwargs['instance'], Notification.TYPES.mention)
-            except UserProfile.DoesNotExist:
-                pass
+    for tag in re.findall(ur"#[a-zA-Z0-9_-]+", message):
+        tag_obj, created = Tag.objects.get_or_create(name=tag[1:])
+        if tag_obj not in kwargs['instance'].related_tags.all():
+            kwargs['instance'].related_tags.add(tag_obj)
+            changed = True
+
+    UserProfile = get_profile_model()
+    for user_profile in re.findall(ur"@[a-zA-Z0-9_]+", message):
+        try:
+            receiver = UserProfile.objects.get(user__username=user_profile[1:])
+            create_notification(receiver, kwargs['instance'].user_profile, kwargs['instance'], Notification.TYPES.mention)
+        except UserProfile.DoesNotExist:
+            pass
 
     if changed:
-        kwargs['instance'].save()
+        kwargs['instance'].save(update_fields=['related_tags'])
 
 
 class Comment(CoreModel):
@@ -82,14 +84,13 @@ class Comment(CoreModel):
 def comment_post_save(sender, **kwargs):
     if kwargs['created']:
         comment = kwargs['instance']
-        for word in comment.description.split():
-            if word.startswith("@"):
-                UserProfile = get_profile_model()
-                try:
-                    receiver = UserProfile.objects.get(user__username=word.replace("@", ""))
-                    create_notification(receiver, comment.user_profile, comment.content_object, Notification.TYPES.mention)
-                except UserProfile.DoesNotExist:
-                    pass
+        UserProfile = get_profile_model()
+        for user_profile in re.findall(ur"@[a-zA-Z0-9_]+", comment.description):
+            try:
+                receiver = UserProfile.objects.get(user__username=user_profile[1:])
+                create_notification(receiver, comment.user_profile, comment.content_object, Notification.TYPES.mention)
+            except UserProfile.DoesNotExist:
+                pass
 
 post_save.connect(comment_post_save, sender=Comment)
 
