@@ -46,7 +46,7 @@ FollowableModel.register(Tag)
 # Expects tags is stored in a field called 'related_tags' on implementing model and it has a parameter called TAG_FIELD to be parsed
 def relate_tags(sender, **kwargs):
     # If we're saving related_tags, don't save again so we avoid duplicating notifications
-    if kwargs['update_fields'] and 'related_tags' in kwargs['update_fields']:
+    if kwargs['update_fields'] and 'related_tags' not in kwargs['update_fields']:
         return
 
     changed = False
@@ -57,16 +57,21 @@ def relate_tags(sender, **kwargs):
             kwargs['instance'].related_tags.add(tag_obj)
             changed = True
 
-    UserProfile = get_profile_model()
-    for user_profile in re.findall(ur"@[a-zA-Z0-9_]+", message):
-        try:
-            receiver = UserProfile.objects.get(user__username=user_profile[1:])
-            create_notification(receiver, kwargs['instance'].user_profile, kwargs['instance'], Notification.TYPES.mention)
-        except UserProfile.DoesNotExist:
-            pass
-
     if changed:
-        kwargs['instance'].save(update_fields=['related_tags'])
+        kwargs['instance'].save()
+
+
+def mentions(sender, **kwargs):
+    if kwargs['created']:
+        message = getattr(kwargs['instance'], sender.TAG_FIELD, '')
+
+        UserProfile = get_profile_model()
+        for user_profile in re.findall(ur"@[a-zA-Z0-9_]+", message):
+            try:
+                receiver = UserProfile.objects.get(user__username=user_profile[1:])
+                create_notification(receiver, kwargs['instance'].user_profile, kwargs['instance'], Notification.TYPES.mention)
+            except UserProfile.DoesNotExist:
+                pass
 
 
 class Comment(CoreModel):
