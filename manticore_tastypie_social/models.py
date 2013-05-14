@@ -83,7 +83,7 @@ class Comment(CoreModel):
     user_profile = models.ForeignKey(settings.AUTH_PROFILE_MODULE)
 
     class Meta:
-        ordering = ['-created']
+        ordering = ['created']
 
 
 def comment_post_save(sender, **kwargs):
