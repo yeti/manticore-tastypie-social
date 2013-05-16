@@ -119,7 +119,7 @@ class Follow(CoreModel):
 
     class Meta:
         unique_together = (("user_profile", "content_type", "object_id"),)
-        ordering = ['-created']
+        ordering = ['created']
 
 
 class Like(CoreModel):
