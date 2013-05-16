@@ -66,7 +66,7 @@ def mentions(sender, **kwargs):
         message = getattr(kwargs['instance'], sender.TAG_FIELD, '')
 
         UserProfile = get_profile_model()
-        for user_profile in re.findall(ur"@[a-zA-Z0-9_]+", message):
+        for user_profile in re.findall(ur"@[a-zA-Z0-9_.]+", message):
             try:
                 receiver = UserProfile.objects.get(user__username=user_profile[1:])
                 create_notification(receiver, kwargs['instance'].user_profile, kwargs['instance'], Notification.TYPES.mention)
@@ -90,7 +90,7 @@ def comment_post_save(sender, **kwargs):
     if kwargs['created']:
         comment = kwargs['instance']
         UserProfile = get_profile_model()
-        for user_profile in re.findall(ur"@[a-zA-Z0-9_]+", comment.description):
+        for user_profile in re.findall(ur"@[a-zA-Z0-9_.]+", comment.description):
             try:
                 receiver = UserProfile.objects.get(user__username=user_profile[1:])
                 create_notification(receiver, comment.user_profile, comment.content_object, Notification.TYPES.mention)
