@@ -82,6 +82,9 @@ class Comment(CoreModel):
     description = models.CharField(max_length=120)
     user_profile = models.ForeignKey(settings.AUTH_PROFILE_MODULE)
 
+    #TODO: Not project agnostic
+    legacy_comment_id = models.CharField(max_length=50, unique=True, db_index=True, blank=True, null=True)
+
     class Meta:
         ordering = ['created']
 
