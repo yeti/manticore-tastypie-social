@@ -2,6 +2,7 @@ from datetime import timedelta
 from django.conf import settings
 from mezzanine.accounts import get_profile_model
 from tastypie import fields
+from tastypie.authentication import MultiAuthentication, Authentication
 from tastypie.authorization import Authorization, ReadOnlyAuthorization
 from tastypie.exceptions import BadRequest
 from tastypie.utils import now
@@ -21,7 +22,7 @@ class TagResource(ManticoreModelResource):
         allowed_methods = ['get']
         queryset = Tag.objects.all()
         authorization = Authorization()
-        authentication = ExpireApiKeyAuthentication()
+        authentication = MultiAuthentication(ExpireApiKeyAuthentication(), Authentication())
         fields = ['id', 'name']
         resource_name = "tag"
         object_name = "tag"
