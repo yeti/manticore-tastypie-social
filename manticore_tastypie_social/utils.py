@@ -18,7 +18,7 @@ def register_api(api):
     return api
 
 
-def post_social_media(user, message, provider, location, raise_error=False):
+def post_social_media(user, message, provider, link, location, raise_error=False):
     try:
         user_social_auth = UserSocialAuth.objects.get(user=user, provider=provider)
 
@@ -27,8 +27,8 @@ def post_social_media(user, message, provider, location, raise_error=False):
 
             params = {
                 'access_token': settings.FACEBOOK_APP_ACCESS_TOKEN,
-                'message': message
-                # 'link': bundle.obj.url
+                'message': message,
+                'link': link
             }
 
             req = urllib2.Request(url, urllib.urlencode(params))
