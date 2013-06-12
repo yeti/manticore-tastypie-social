@@ -1,5 +1,6 @@
 import urllib
 import urllib2
+from celery.task import task
 from django.conf import settings
 import foursquare
 import oauth2
@@ -18,7 +19,8 @@ def register_api(api):
     return api
 
 
-def post_social_media(user, message, provider, link, location, raise_error=False):
+@task
+def post_social_media(user, message, provider, link, location, raise_error=True):
     try:
         user_social_auth = UserSocialAuth.objects.get(user=user, provider=provider)
 
