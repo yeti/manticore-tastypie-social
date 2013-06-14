@@ -76,7 +76,7 @@ def mentions(sender, **kwargs):
 
 class Comment(CoreModel):
     content_type = models.ForeignKey(ContentType)
-    object_id = models.PositiveIntegerField()
+    object_id = models.PositiveIntegerField(db_index=True)
     content_object = generic.GenericForeignKey()
 
     description = models.CharField(max_length=120)
@@ -106,7 +106,7 @@ post_save.connect(comment_post_save, sender=Comment)
 # Allows a user to 'follow' objects
 class Follow(CoreModel):
     content_type = models.ForeignKey(ContentType)
-    object_id = models.CharField(max_length=250)
+    object_id = models.CharField(max_length=250, db_index=True)
     content_object = generic.GenericForeignKey()
 
     user_profile = models.ForeignKey(settings.AUTH_PROFILE_MODULE)
@@ -127,7 +127,7 @@ class Follow(CoreModel):
 
 class Like(CoreModel):
     content_type = models.ForeignKey(ContentType)
-    object_id = models.PositiveIntegerField()
+    object_id = models.PositiveIntegerField(db_index=True)
     content_object = generic.GenericForeignKey()
 
     user_profile = models.ForeignKey(settings.AUTH_PROFILE_MODULE)
