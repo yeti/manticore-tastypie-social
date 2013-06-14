@@ -171,7 +171,7 @@ class Notification(CoreModel):
     reporter = models.ForeignKey(settings.AUTH_PROFILE_MODULE, related_name="reporter", null=True, blank=True)
 
     content_type = models.ForeignKey(ContentType)
-    object_id = models.PositiveIntegerField()
+    object_id = models.PositiveIntegerField(db_index=True)
     content_object = generic.GenericForeignKey()
 
     def message(self):
@@ -257,7 +257,7 @@ class FriendAction(CoreModel):
     user_profile = models.ForeignKey(settings.AUTH_PROFILE_MODULE)
 
     content_type = models.ForeignKey(ContentType)
-    object_id = models.PositiveIntegerField()
+    object_id = models.PositiveIntegerField(db_index=True)
     content_object = generic.GenericForeignKey()
 
     def message(self):
