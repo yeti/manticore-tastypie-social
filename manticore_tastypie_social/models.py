@@ -79,7 +79,7 @@ class Comment(CoreModel):
     object_id = models.PositiveIntegerField(db_index=True)
     content_object = generic.GenericForeignKey()
 
-    description = models.CharField(max_length=120)
+    description = models.CharField(max_length=140)
     user_profile = models.ForeignKey(settings.AUTH_PROFILE_MODULE)
 
     #TODO: Not project agnostic
