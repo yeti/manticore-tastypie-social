@@ -19,22 +19,29 @@ def register_api(api):
     return api
 
 
+def post_to_facebook(app_access_token, user_social_auth, message, link):
+    url = "https://graph.facebook.com/%s/feed" % user_social_auth.uid
+
+    params = {
+        'access_token': app_access_token,
+        'message': message,
+        'link': link
+    }
+
+    req = urllib2.Request(url, urllib.urlencode(params))
+    urllib2.urlopen(req)
+
 @task
 def post_social_media(user, message, provider, link, location, raise_error=True):
     try:
         user_social_auth = UserSocialAuth.objects.get(user=user, provider=provider)
 
         if user_social_auth.provider == 'facebook':
-            url = "https://graph.facebook.com/%s/feed" % user_social_auth.uid
-
-            params = {
-                'access_token': settings.FACEBOOK_APP_ACCESS_TOKEN,
-                'message': message,
-                'link': link
-            }
-
-            req = urllib2.Request(url, urllib.urlencode(params))
-            urllib2.urlopen(req)
+            try:
+                post_to_facebook(settings.FACEBOOK_APP_ACCESS_TOKEN, user_social_auth, message, link)
+            except urllib2.HTTPError:
+                # Error in launching app with dev facebook credentials, if we get a HTTPError retry with dev credentials
+                post_to_facebook(settings.FACEBOOK_APP_ACCESS_TOKEN_DEV, user_social_auth, message, link)
         elif user_social_auth.provider == 'twitter':
             data = {
                 'status': message,
