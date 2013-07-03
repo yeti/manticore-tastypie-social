@@ -1,3 +1,4 @@
+from StringIO import StringIO
 import urllib
 import urllib2
 from celery.task import task
@@ -6,6 +7,7 @@ import foursquare
 import oauth2
 from social_auth.db.django_models import UserSocialAuth
 from tastypie.exceptions import BadRequest
+from twython import Twython
 from manticore_tastypie_social.manticore_tastypie_social.resources import TagResource, FollowResource, AirshipTokenResource, NotificationSettingResource, SocialProviderResource
 
 
@@ -32,7 +34,7 @@ def post_to_facebook(app_access_token, user_social_auth, message, link):
     urllib2.urlopen(req)
 
 @task
-def post_social_media(user, message, provider, link, location, raise_error=True):
+def post_social_media(user, message, provider, link, location, raise_error=True, image=None):
     try:
         user_social_auth = UserSocialAuth.objects.get(user=user, provider=provider)
 
@@ -43,16 +45,18 @@ def post_social_media(user, message, provider, link, location, raise_error=True)
                 # Error in launching app with dev facebook credentials, if we get a HTTPError retry with dev credentials
                 post_to_facebook(settings.FACEBOOK_APP_ACCESS_TOKEN_DEV, user_social_auth, message, link)
         elif user_social_auth.provider == 'twitter':
-            data = {
-                'status': message,
-                'wrap_links': True,
-            }
+            twitter = Twython(
+                app_key=settings.TWITTER_CONSUMER_KEY,
+                app_secret=settings.TWITTER_CONSUMER_SECRET,
+                oauth_token=user_social_auth.tokens['oauth_token'],
+                oauth_token_secret=user_social_auth.tokens['oauth_token_secret']
+            )
 
-            url = "https://api.twitter.com/1.1/statuses/update.json"
-            consumer = oauth2.Consumer(settings.TWITTER_CONSUMER_KEY, settings.TWITTER_CONSUMER_SECRET)
-            token = oauth2.Token(user_social_auth.tokens['oauth_token'], user_social_auth.tokens['oauth_token_secret'])
-            client = oauth2.Client(consumer, token)
-            client.request(url, 'POST', urllib.urlencode(data))
+            if image:
+                photo = StringIO(urllib.urlopen(image).read())
+                twitter.update_status_with_media(media=photo, status=message, wrap_links=True)
+            else:
+                twitter.update_status(status=message, wrap_links=True)
         elif user_social_auth.provider == 'foursquare':
             if location:
                 client = foursquare.Foursquare(client_id=settings.FOURSQUARE_CONSUMER_KEY, client_secret=settings.FOURSQUARE_CONSUMER_SECRET, access_token=user_social_auth.extra_data['access_token'])
