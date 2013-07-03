@@ -4,7 +4,6 @@ import urllib2
 from celery.task import task
 from django.conf import settings
 import foursquare
-import oauth2
 from social_auth.db.django_models import UserSocialAuth
 from tastypie.exceptions import BadRequest
 from twython import Twython
@@ -34,7 +33,7 @@ def post_to_facebook(app_access_token, user_social_auth, message, link):
     urllib2.urlopen(req)
 
 @task
-def post_social_media(user, message, provider, link, location, raise_error=True, image=None):
+def post_social_media(user, message, provider, link, location, object_class, pk, raise_error=True):
     try:
         user_social_auth = UserSocialAuth.objects.get(user=user, provider=provider)
 
@@ -52,8 +51,10 @@ def post_social_media(user, message, provider, link, location, raise_error=True,
                 oauth_token_secret=user_social_auth.tokens['oauth_token_secret']
             )
 
-            if image:
-                photo = StringIO(urllib.urlopen(image).read())
+            social_object = object_class.objects.get(pk=pk)
+
+            if social_object.small_photo:
+                photo = StringIO(urllib.urlopen(social_object.small_photo.url).read())
                 twitter.update_status_with_media(media=photo, status=message, wrap_links=True)
             else:
                 twitter.update_status(status=message, wrap_links=True)
