@@ -150,7 +150,7 @@ class Flag(CoreModel):
 
 # Stores user tokens from Urban Airship
 class AirshipToken(CoreModel):
-    user_profile = models.ForeignKey(settings.AUTH_PROFILE_MODULE, unique=True)
+    user_profile = models.ForeignKey(settings.AUTH_PROFILE_MODULE)
     token = models.CharField(max_length=100)
     expired = models.BooleanField(default=False)
 
