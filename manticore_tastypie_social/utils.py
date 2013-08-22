@@ -51,13 +51,7 @@ def post_social_media(user, message, provider, link, location, object_class, pk,
                 oauth_token_secret=user_social_auth.tokens['oauth_token_secret']
             )
 
-            social_object = object_class.objects.get(pk=pk)
-
-            if social_object.small_photo:
-                photo = StringIO(urllib.urlopen(social_object.small_photo.url).read())
-                twitter.update_status_with_media(media=photo, status=message, wrap_links=True)
-            else:
-                twitter.update_status(status=message, wrap_links=True)
+            twitter.update_status(status=message, wrap_links=True)
         elif user_social_auth.provider == 'foursquare':
             if location:
                 client = foursquare.Foursquare(client_id=settings.FOURSQUARE_CONSUMER_KEY, client_secret=settings.FOURSQUARE_CONSUMER_SECRET, access_token=user_social_auth.extra_data['access_token'])
