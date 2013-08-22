@@ -32,17 +32,41 @@ def post_to_facebook(app_access_token, user_social_auth, message, link):
     req = urllib2.Request(url, urllib.urlencode(params))
     urllib2.urlopen(req)
 
+def post_to_facebook_og(app_access_token, user_social_auth, obj):
+    og_info = obj.facebook_og_info()
+
+    url = "https://graph.facebook.com/{0}/{0}:{0}".format(
+        user_social_auth.uid,
+        settings.FACEBOOK_OG_NAMESPACE,
+        og_info['action'],
+        )
+
+    params = {
+        '{0}'.format(og_info['object']): '{0}'.format(og_info['url']),
+        'access_token': app_access_token,
+    }
+
+    req = urllib2.Request(url, urllib.urlencode(params))
+    urllib2.urlopen(req)
+
 @task
-def post_social_media(user, message, provider, link, location, object_class, pk, raise_error=True):
+def post_social_media(user, message, provider, link, location, object_class, pk, obj=None, raise_error=True):
     try:
         user_social_auth = UserSocialAuth.objects.get(user=user, provider=provider)
 
         if user_social_auth.provider == 'facebook':
-            try:
-                post_to_facebook(settings.FACEBOOK_APP_ACCESS_TOKEN, user_social_auth, message, link)
-            except urllib2.HTTPError:
-                # Error in launching app with dev facebook credentials, if we get a HTTPError retry with dev credentials
-                post_to_facebook(settings.FACEBOOK_APP_ACCESS_TOKEN_DEV, user_social_auth, message, link)
+            if settings.USE_FACEBOOK_OG:
+                try:
+                    post_to_facebook_og(settings.FACEBOOK_APP_ACCESS_TOKEN, user_social_auth, obj)
+                except urllib2.HTTPError:
+                    # Error in launching app with dev facebook credentials, if we get a HTTPError retry with dev credentials
+                    post_to_facebook(settings.FACEBOOK_APP_ACCESS_TOKEN_DEV, user_social_auth, obj)
+            else:
+                try:
+                    post_to_facebook(settings.FACEBOOK_APP_ACCESS_TOKEN, user_social_auth, message, link)
+                except urllib2.HTTPError:
+                    # Error in launching app with dev facebook credentials, if we get a HTTPError retry with dev credentials
+                    post_to_facebook(settings.FACEBOOK_APP_ACCESS_TOKEN_DEV, user_social_auth, message, link)
         elif user_social_auth.provider == 'twitter':
             twitter = Twython(
                 app_key=settings.TWITTER_CONSUMER_KEY,
@@ -51,7 +75,13 @@ def post_social_media(user, message, provider, link, location, object_class, pk,
                 oauth_token_secret=user_social_auth.tokens['oauth_token_secret']
             )
 
-            twitter.update_status(status=message, wrap_links=True)
+            social_object = object_class.objects.get(pk=pk)
+
+            if social_object.small_photo:
+                photo = StringIO(urllib.urlopen(social_object.small_photo.url).read())
+                twitter.update_status_with_media(media=photo, status=message, wrap_links=True)
+            else:
+                twitter.update_status(status=message, wrap_links=True)
         elif user_social_auth.provider == 'foursquare':
             if location:
                 client = foursquare.Foursquare(client_id=settings.FOURSQUARE_CONSUMER_KEY, client_secret=settings.FOURSQUARE_CONSUMER_SECRET, access_token=user_social_auth.extra_data['access_token'])
