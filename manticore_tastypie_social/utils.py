@@ -78,7 +78,14 @@ def post_social_media(user, message, provider, link, location, object_class, pk,
                 oauth_token_secret=user_social_auth.tokens['oauth_token_secret']
             )
 
-            twitter.update_status(status=message, wrap_links=True)
+            full_message_url = "{0} {1}".format(message, link)
+
+            # 140 characters minus the length of the link minus the space minus 3 characters for the ellipsis
+            message_trunc = 140 - len(link) - 1 - 3
+
+            # Truncate the message if the message + url is over 140
+            safe_message = ("{0}... {1}".format(message[:message_trunc], link)) if len(full_message_url) > 140 else full_message_url
+            twitter.update_status(status=safe_message, wrap_links=True)
         elif user_social_auth.provider == 'foursquare':
             if location:
                 client = foursquare.Foursquare(client_id=settings.FOURSQUARE_CONSUMER_KEY, client_secret=settings.FOURSQUARE_CONSUMER_SECRET, access_token=user_social_auth.extra_data['access_token'])
