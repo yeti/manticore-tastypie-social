@@ -1,5 +1,6 @@
 from datetime import timedelta
 from django.conf import settings
+from django.contrib.auth import get_user_model
 from tastypie import fields
 from tastypie.authentication import MultiAuthentication, Authentication
 from tastypie.authorization import Authorization, ReadOnlyAuthorization
@@ -12,7 +13,7 @@ from manticore_tastypie_user.manticore_tastypie_user.authentication import Expir
 from manticore_tastypie_user.manticore_tastypie_user.authorization import UserObjectsOnlyAuthorization
 from manticore_tastypie_user.manticore_tastypie_user.resources import UserResource, MinimalUserResource
 
-User = settings.AUTH_USER_MODEL
+User = get_user_model()
 
 
 class TagResource(ManticoreModelResource):

@@ -1,4 +1,5 @@
 import abc
+from django.contrib.auth import get_user_model
 import re
 from django.conf import settings
 from django.contrib.contenttypes import generic
@@ -64,7 +65,7 @@ def mentions(sender, **kwargs):
     if kwargs['created']:
         message = getattr(kwargs['instance'], sender.TAG_FIELD, '')
 
-        User = settings.AUTH_USER_MODEL
+        User = get_user_model()
         for user in re.findall(ur"@[a-zA-Z0-9_.]+", message):
             try:
                 receiver = User.objects.get(username=user[1:])
@@ -91,7 +92,7 @@ class Comment(CoreModel):
 def comment_post_save(sender, **kwargs):
     if kwargs['created']:
         comment = kwargs['instance']
-        User = settings.AUTH_USER_MODEL
+        User = get_user_model()
         for user in re.findall(ur"@[a-zA-Z0-9_.]+", comment.description):
             try:
                 receiver = User.objects.get(username=user[1:])

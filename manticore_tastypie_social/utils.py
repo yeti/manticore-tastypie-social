@@ -2,7 +2,7 @@ import urllib
 import urllib2
 from celery.task import task
 from django.conf import settings
-import foursquare
+# import foursquare
 from social_auth.db.django_models import UserSocialAuth
 from tastypie.exceptions import BadRequest
 from twython import Twython
@@ -86,18 +86,18 @@ def post_social_media(user, message, provider, link, location, object_class, pk,
             # Truncate the message if the message + url is over 140
             safe_message = ("{0}... {1}".format(message[:message_trunc], link)) if len(full_message_url) > 140 else full_message_url
             twitter.update_status(status=safe_message, wrap_links=True)
-        elif user_social_auth.provider == 'foursquare':
-            if location:
-                client = foursquare.Foursquare(client_id=settings.FOURSQUARE_CONSUMER_KEY, client_secret=settings.FOURSQUARE_CONSUMER_SECRET, access_token=user_social_auth.extra_data['access_token'])
-                coords = "%s,%s" % (location.latitude, location.longitude)
-                query = client.venues.search(params={"intent": "match", "ll": coords, "query": location.name, "limit": 1})
-                if len(query['venues']) > 0:
-                    venue = query['venues'][0]
-                    client.checkins.add(params={"venueId": venue['id'], "ll": coords, "shout": message})
-                else:
-                    raise BadRequest("Matching foursquare location not found")
-            else:
-                raise BadRequest("No location provided for foursquare")
+        # elif user_social_auth.provider == 'foursquare':
+        #     if location:
+        #         client = foursquare.Foursquare(client_id=settings.FOURSQUARE_CONSUMER_KEY, client_secret=settings.FOURSQUARE_CONSUMER_SECRET, access_token=user_social_auth.extra_data['access_token'])
+        #         coords = "%s,%s" % (location.latitude, location.longitude)
+        #         query = client.venues.search(params={"intent": "match", "ll": coords, "query": location.name, "limit": 1})
+        #         if len(query['venues']) > 0:
+        #             venue = query['venues'][0]
+        #             client.checkins.add(params={"venueId": venue['id'], "ll": coords, "shout": message})
+        #         else:
+        #             raise BadRequest("Matching foursquare location not found")
+        #     else:
+        #         raise BadRequest("No location provided for foursquare")
         elif raise_error:
             raise BadRequest("Does not support this provider: %s" % provider)
     except (UserSocialAuth.DoesNotExist, urllib2.HTTPError, ValueError, IOError), e:
