@@ -1,6 +1,5 @@
 from datetime import timedelta
 from django.conf import settings
-from mezzanine.accounts import get_profile_model
 from tastypie import fields
 from tastypie.authentication import MultiAuthentication, Authentication
 from tastypie.authorization import Authorization, ReadOnlyAuthorization
@@ -10,10 +9,10 @@ import urbanairship
 from manticore_tastypie_core.manticore_tastypie_core.resources import ManticoreModelResource
 from manticore_tastypie_social.manticore_tastypie_social.models import Tag, Comment, Follow, Like, Flag, AirshipToken, NotificationSetting, Notification, create_friend_action, FriendAction, SocialProvider
 from manticore_tastypie_user.manticore_tastypie_user.authentication import ExpireApiKeyAuthentication
-from manticore_tastypie_user.manticore_tastypie_user.authorization import UserProfileObjectsOnlyAuthorization
-from manticore_tastypie_user.manticore_tastypie_user.resources import UserProfileResource, MinimalUserProfileResource
+from manticore_tastypie_user.manticore_tastypie_user.authorization import UserObjectsOnlyAuthorization
+from manticore_tastypie_user.manticore_tastypie_user.resources import UserResource, MinimalUserResource
 
-UserProfile = get_profile_model()
+User = settings.AUTH_USER_MODEL
 
 
 class TagResource(ManticoreModelResource):
@@ -31,7 +30,7 @@ class TagResource(ManticoreModelResource):
 
 
 class CommentResource(ManticoreModelResource):
-    user_profile = fields.ToOneField(MinimalUserProfileResource, 'user_profile', full=True)
+    user = fields.ToOneField(MinimalUserResource, 'user', full=True)
 
     class Meta:
         queryset = Comment.objects.all()
@@ -44,17 +43,17 @@ class CommentResource(ManticoreModelResource):
 
     def obj_create(self, bundle, **kwargs):
         bundle = super(CommentResource, self).obj_create(bundle, **kwargs)
-        create_friend_action(bundle.obj.user_profile, bundle.obj.content_object, FriendAction.TYPES.comment)
+        create_friend_action(bundle.obj.user, bundle.obj.content_object, FriendAction.TYPES.comment)
         return bundle
 
 
 class CreateFollowResource(ManticoreModelResource):
-    user_profile = fields.ToOneField(UserProfileResource, 'user_profile')
+    user = fields.ToOneField(UserResource, 'user')
 
     class Meta:
         queryset = Follow.objects.all()
         allowed_methods = ['post']
-        authorization = UserProfileObjectsOnlyAuthorization()
+        authorization = UserObjectsOnlyAuthorization()
         authentication = ExpireApiKeyAuthentication()
         resource_name = "create_follow"
         always_return_data = True
@@ -62,7 +61,7 @@ class CreateFollowResource(ManticoreModelResource):
 
     def obj_create(self, bundle, **kwargs):
         bundle = super(CreateFollowResource, self).obj_create(bundle, **kwargs)
-        create_friend_action(bundle.obj.user_profile, bundle.obj.content_object, FriendAction.TYPES.follow)
+        create_friend_action(bundle.obj.user, bundle.obj.content_object, FriendAction.TYPES.follow)
         return bundle
 
 
@@ -73,7 +72,7 @@ class FollowResource(ManticoreModelResource):
     class Meta:
         queryset = Follow.objects.all()
         allowed_methods = ['get', 'delete']
-        authorization = UserProfileObjectsOnlyAuthorization()
+        authorization = UserObjectsOnlyAuthorization()
         authentication = ExpireApiKeyAuthentication()
         resource_name = "follow"
         object_name = "follow"
@@ -83,12 +82,12 @@ class FollowResource(ManticoreModelResource):
 
 
 class LikeResource(ManticoreModelResource):
-    user_profile = fields.ToOneField(UserProfileResource, 'user_profile')
+    user = fields.ToOneField(UserResource, 'user')
 
     class Meta:
         queryset = Like.objects.all()
         allowed_methods = ['post']
-        authorization = UserProfileObjectsOnlyAuthorization()
+        authorization = UserObjectsOnlyAuthorization()
         authentication = ExpireApiKeyAuthentication()
         resource_name = "like"
         always_return_data = True
@@ -96,17 +95,17 @@ class LikeResource(ManticoreModelResource):
 
     def obj_create(self, bundle, **kwargs):
         bundle = super(LikeResource, self).obj_create(bundle, **kwargs)
-        create_friend_action(bundle.obj.user_profile, bundle.obj.content_object, FriendAction.TYPES.like)
+        create_friend_action(bundle.obj.user, bundle.obj.content_object, FriendAction.TYPES.like)
         return bundle
 
 
 class FlagResource(ManticoreModelResource):
-    user_profile = fields.ToOneField(UserProfileResource, 'user_profile')
+    user = fields.ToOneField(UserResource, 'user')
 
     class Meta:
         queryset = Flag.objects.all()
         allowed_methods = ['post']
-        authorization = UserProfileObjectsOnlyAuthorization()
+        authorization = UserObjectsOnlyAuthorization()
         authentication = ExpireApiKeyAuthentication()
         resource_name = "flag"
         always_return_data = True
@@ -118,7 +117,7 @@ class AirshipTokenResource(ManticoreModelResource):
     class Meta:
         queryset = AirshipToken.objects.all()
         allowed_methods = ['get', 'post']
-        authorization = UserProfileObjectsOnlyAuthorization()
+        authorization = UserObjectsOnlyAuthorization()
         authentication = ExpireApiKeyAuthentication()
         resource_name = "airship_token"
         always_return_data = True
@@ -133,7 +132,7 @@ class AirshipTokenResource(ManticoreModelResource):
                 # Delete other usages of this token (i.e. multiple accounts on one device)
                 AirshipToken.objects.filter(token=bundle.data['token']).delete()
 
-                bundle.obj = AirshipToken(user_profile=bundle.request.user.get_profile(), token=bundle.data['token'])
+                bundle.obj = AirshipToken(user=bundle.request.user, token=bundle.data['token'])
                 bundle.obj.save()
             except urbanairship.AirshipFailure:
                 raise BadRequest("Failed Authentication")
@@ -150,7 +149,7 @@ class NotificationSettingResource(ManticoreModelResource):
     class Meta:
         queryset = NotificationSetting.objects.all()
         allowed_methods = ['get', 'patch']
-        authorization = UserProfileObjectsOnlyAuthorization()
+        authorization = UserObjectsOnlyAuthorization()
         authentication = ExpireApiKeyAuthentication()
         resource_name = "notification_setting"
         always_return_data = True
@@ -161,12 +160,12 @@ class NotificationSettingResource(ManticoreModelResource):
 class NotificationResource(ManticoreModelResource):
     name = fields.CharField(attribute='name')
     display_name = fields.CharField(attribute='display_name')
-    reporter = fields.ToOneField(UserProfileResource, 'reporter', null=True, full=True)
+    reporter = fields.ToOneField(UserResource, 'reporter', null=True, full=True)
 
     class Meta:
         queryset = Notification.objects.all()
         allowed_methods = ['get']
-        authorization = UserProfileObjectsOnlyAuthorization()
+        authorization = UserObjectsOnlyAuthorization()
         authentication = ExpireApiKeyAuthentication()
         resource_name = "notification"
         object_name = "notification"
@@ -180,16 +179,16 @@ class NotificationResource(ManticoreModelResource):
 class FriendActionResource(ManticoreModelResource):
     name = fields.CharField(attribute='name')
     display_name = fields.CharField(attribute='display_name')
-    user_profile = fields.ToOneField(UserProfileResource, 'user_profile', full=True)
+    user = fields.ToOneField(UserResource, 'user', full=True)
 
     class Meta:
         queryset = FriendAction.objects.all()
         allowed_methods = ['get']
-        authorization = UserProfileObjectsOnlyAuthorization()
+        authorization = UserObjectsOnlyAuthorization()
         authentication = ExpireApiKeyAuthentication()
         resource_name = "friend_action"
         object_name = "friend_action"
-        fields = ['id', 'created', 'name', 'display_name', 'user_profile']
+        fields = ['id', 'created', 'name', 'display_name', 'user']
 
     def get_object_list(self, request=None, **kwargs):
         date = now() - timedelta(days=settings.NOTIFICATION_WINDOW_HOURS)

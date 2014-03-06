@@ -5,7 +5,6 @@ from django.contrib.contenttypes import generic
 from django.contrib.contenttypes.models import ContentType
 from django.db import models
 from django.db.models.signals import post_save
-from mezzanine.accounts import get_profile_model
 from model_utils import Choices
 import urbanairship
 from manticore_django.manticore_django.models import CoreModel
@@ -65,12 +64,12 @@ def mentions(sender, **kwargs):
     if kwargs['created']:
         message = getattr(kwargs['instance'], sender.TAG_FIELD, '')
 
-        UserProfile = get_profile_model()
-        for user_profile in re.findall(ur"@[a-zA-Z0-9_.]+", message):
+        User = settings.AUTH_USER_MODEL
+        for user in re.findall(ur"@[a-zA-Z0-9_.]+", message):
             try:
-                receiver = UserProfile.objects.get(user__username=user_profile[1:])
-                create_notification(receiver, kwargs['instance'].user_profile, kwargs['instance'], Notification.TYPES.mention)
-            except UserProfile.DoesNotExist:
+                receiver = User.objects.get(username=user[1:])
+                create_notification(receiver, kwargs['instance'].user, kwargs['instance'], Notification.TYPES.mention)
+            except User.DoesNotExist:
                 pass
 
 
@@ -80,7 +79,7 @@ class Comment(CoreModel):
     content_object = generic.GenericForeignKey()
 
     description = models.CharField(max_length=140)
-    user_profile = models.ForeignKey(settings.AUTH_PROFILE_MODULE)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL)
 
     #TODO: Not project agnostic
     legacy_comment_id = models.CharField(max_length=50, unique=True, db_index=True, blank=True, null=True)
@@ -92,12 +91,12 @@ class Comment(CoreModel):
 def comment_post_save(sender, **kwargs):
     if kwargs['created']:
         comment = kwargs['instance']
-        UserProfile = get_profile_model()
-        for user_profile in re.findall(ur"@[a-zA-Z0-9_.]+", comment.description):
+        User = settings.AUTH_USER_MODEL
+        for user in re.findall(ur"@[a-zA-Z0-9_.]+", comment.description):
             try:
-                receiver = UserProfile.objects.get(user__username=user_profile[1:])
-                create_notification(receiver, comment.user_profile, comment.content_object, Notification.TYPES.mention)
-            except UserProfile.DoesNotExist:
+                receiver = User.objects.get(username=user[1:])
+                create_notification(receiver, comment.user, comment.content_object, Notification.TYPES.mention)
+            except User.DoesNotExist:
                 pass
 
 post_save.connect(comment_post_save, sender=Comment)
@@ -109,7 +108,7 @@ class Follow(CoreModel):
     object_id = models.CharField(max_length=250, db_index=True)
     content_object = generic.GenericForeignKey()
 
-    user_profile = models.ForeignKey(settings.AUTH_PROFILE_MODULE)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL)
 
     @property
     def object_type(self):
@@ -121,7 +120,7 @@ class Follow(CoreModel):
         return self.content_object.identifier()
 
     class Meta:
-        unique_together = (("user_profile", "content_type", "object_id"),)
+        unique_together = (("user", "content_type", "object_id"),)
         ordering = ['created']
 
 
@@ -130,10 +129,10 @@ class Like(CoreModel):
     object_id = models.PositiveIntegerField(db_index=True)
     content_object = generic.GenericForeignKey()
 
-    user_profile = models.ForeignKey(settings.AUTH_PROFILE_MODULE)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL)
 
     class Meta:
-        unique_together = (("user_profile", "content_type", "object_id"),)
+        unique_together = (("user", "content_type", "object_id"),)
 
 
 # Flag an object for review
@@ -142,15 +141,15 @@ class Flag(CoreModel):
     object_id = models.PositiveIntegerField()
     content_object = generic.GenericForeignKey()
 
-    user_profile = models.ForeignKey(settings.AUTH_PROFILE_MODULE)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL)
 
     class Meta:
-        unique_together = (("user_profile", "content_type", "object_id"),)
+        unique_together = (("user", "content_type", "object_id"),)
 
 
 # Stores user tokens from Urban Airship
 class AirshipToken(CoreModel):
-    user_profile = models.ForeignKey(settings.AUTH_PROFILE_MODULE)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL)
     token = models.CharField(max_length=100)
     expired = models.BooleanField(default=False)
 
@@ -167,8 +166,8 @@ class Notification(CoreModel):
         (6, 'friend', _('your friend just signed up')),
     )
     notification_type = models.PositiveSmallIntegerField(choices=TYPES)
-    user_profile = models.ForeignKey(settings.AUTH_PROFILE_MODULE, related_name="receiver")
-    reporter = models.ForeignKey(settings.AUTH_PROFILE_MODULE, related_name="reporter", null=True, blank=True)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="receiver", null=True)
+    reporter = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="reporter", null=True, blank=True)
 
     content_type = models.ForeignKey(ContentType)
     object_id = models.PositiveIntegerField(db_index=True)
@@ -179,14 +178,14 @@ class Notification(CoreModel):
 
     def push_message(self):
         # If this is a comment on an object the receiving user doesn't own, change the default message
-        if self.notification_type == self.TYPES.comment and self.content_object.user_profile != self.user_profile:
-            message = "@%s commented on @%s's report" % (self.reporter.user.username, self.content_object.user_profile.user.username)
+        if self.notification_type == self.TYPES.comment and self.content_object.user != self.user:
+            message = "@%s commented on @%s's report" % (self.reporter.username, self.content_object.user.username)
         elif self.notification_type == self.TYPES.trending:
             message = "Your report is trending!"
         elif self.notification_type == self.TYPES.friend:
-            message = "Your friend just signed up as @%s" % self.reporter.user.username
+            message = "Your friend just signed up as @%s" % self.reporter.username
         else:
-            message = "@%s %s" % (self.reporter.user.username, self.message())
+            message = "@%s %s" % (self.reporter.username, self.message())
 
         return message
 
@@ -201,18 +200,18 @@ class Notification(CoreModel):
 
 def create_notification(receiver, reporter, content_object, notification_type):
     # If the receiver of this notification is the same as the reporter or if the user has blocked this type, then don't create
-    if receiver == reporter or not NotificationSetting.objects.get(notification_type=notification_type, user_profile=receiver).allow:
+    if receiver == reporter or not NotificationSetting.objects.get(notification_type=notification_type, user=receiver).allow:
         return
 
-    notification = Notification.objects.create(user_profile=receiver,
+    notification = Notification.objects.create(user=receiver,
                                                reporter=reporter,
                                                content_object=content_object,
                                                notification_type=notification_type)
     notification.save()
 
-    if AirshipToken.objects.filter(user_profile=receiver, expired=False).exists():
+    if AirshipToken.objects.filter(user=receiver, expired=False).exists():
         try:
-            device_tokens = list(AirshipToken.objects.filter(user_profile=receiver, expired=False).values_list('token', flat=True))
+            device_tokens = list(AirshipToken.objects.filter(user=receiver, expired=False).values_list('token', flat=True))
             airship = urbanairship.Airship(settings.AIRSHIP_APP_KEY, settings.AIRSHIP_APP_MASTER_SECRET)
             airship.push({'aps': {'alert': notification.push_message(), 'badge': '+1'}}, device_tokens=device_tokens)
         except urbanairship.AirshipFailure:
@@ -221,11 +220,11 @@ def create_notification(receiver, reporter, content_object, notification_type):
 
 class NotificationSetting(CoreModel):
     notification_type = models.PositiveSmallIntegerField(choices=Notification.TYPES)
-    user_profile = models.ForeignKey(settings.AUTH_PROFILE_MODULE)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL)
     allow = models.BooleanField(default=True)
 
     class Meta:
-        unique_together = ('notification_type', 'user_profile')
+        unique_together = ('notification_type', 'user')
 
     def name(self):
         return u"%s" % Notification.TYPES._full[self.notification_type][1]
@@ -236,12 +235,12 @@ class NotificationSetting(CoreModel):
 
 def create_notifications(sender, **kwargs):
     sender_name = "%s.%s" % (sender._meta.app_label, sender._meta.object_name)
-    if sender_name.lower() != settings.AUTH_PROFILE_MODULE.lower():
+    if sender_name.lower() != settings.AUTH_USER_MODEL.lower():
         return
 
     if kwargs['created']:
-        user_profile = kwargs['instance']
-        NotificationSetting.objects.bulk_create([NotificationSetting(user_profile=user_profile, notification_type=pk) for pk, name in Notification.TYPES])
+        user = kwargs['instance']
+        NotificationSetting.objects.bulk_create([NotificationSetting(user=user, notification_type=pk) for pk, name in Notification.TYPES])
 
 post_save.connect(create_notifications)
 
@@ -254,7 +253,7 @@ class FriendAction(CoreModel):
         (2, 'comment', _('commented on a report')),
     )
     action_type = models.PositiveSmallIntegerField(choices=TYPES)
-    user_profile = models.ForeignKey(settings.AUTH_PROFILE_MODULE)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL)
 
     content_type = models.ForeignKey(ContentType)
     object_id = models.PositiveIntegerField(db_index=True)
@@ -273,8 +272,8 @@ class FriendAction(CoreModel):
         ordering = ['-created']
 
 
-def create_friend_action(user_profile, content_object, action_type):
-    friend_action = FriendAction.objects.create(user_profile=user_profile,
+def create_friend_action(user, content_object, action_type):
+    friend_action = FriendAction.objects.create(user=user,
                                                 content_object=content_object,
                                                 action_type=action_type)
     friend_action.save()
