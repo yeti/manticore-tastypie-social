@@ -49,7 +49,7 @@ class CommentResource(ManticoreModelResource):
 
 
 class CreateFollowResource(ManticoreModelResource):
-    user = fields.ToOneField(UserResource, 'user')
+    # user = fields.ToOneField(UserResource, 'user')
 
     class Meta:
         queryset = Follow.objects.all()
