@@ -3,7 +3,7 @@ import urllib2
 from celery.task import task
 from django.conf import settings
 # import foursquare
-from social_auth.db.django_models import UserSocialAuth
+from social.apps.django_app.default.models import UserSocialAuth
 from tastypie.exceptions import BadRequest
 from twython import Twython
 from manticore_tastypie_social.manticore_tastypie_social.resources import TagResource, FollowResource, AirshipTokenResource, NotificationSettingResource, SocialProviderResource
