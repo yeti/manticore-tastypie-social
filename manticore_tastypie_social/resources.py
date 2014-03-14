@@ -1,17 +1,22 @@
 from datetime import timedelta
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.contrib.contenttypes.models import ContentType
 from tastypie import fields
 from tastypie.authentication import MultiAuthentication, Authentication
 from tastypie.authorization import Authorization, ReadOnlyAuthorization
+from tastypie.constants import ALL_WITH_RELATIONS
 from tastypie.exceptions import BadRequest
 from tastypie.utils import now
 import urbanairship
+from manticore_tastypie_core.manticore_tastypie_core.fields import BareGenericForeignKeyField
 from manticore_tastypie_core.manticore_tastypie_core.resources import ManticoreModelResource
 from manticore_tastypie_social.manticore_tastypie_social.models import Tag, Comment, Follow, Like, Flag, AirshipToken, NotificationSetting, Notification, create_friend_action, FriendAction, SocialProvider
 from manticore_tastypie_user.manticore_tastypie_user.authentication import ExpireApiKeyAuthentication
-from manticore_tastypie_user.manticore_tastypie_user.authorization import UserObjectsOnlyAuthorization
-from manticore_tastypie_user.manticore_tastypie_user.resources import UserResource, MinimalUserResource
+from manticore_tastypie_user.manticore_tastypie_user.authorization import UserObjectsOnlyAuthorization, \
+    RelateUserAuthorization
+from manticore_tastypie_user.manticore_tastypie_user.resources import UserResource, MinimalUserResource, \
+    SearchUserResource
 
 User = get_user_model()
 
@@ -49,12 +54,12 @@ class CommentResource(ManticoreModelResource):
 
 
 class CreateFollowResource(ManticoreModelResource):
-    user = fields.ToOneField(UserResource, 'user')
+    user = fields.ToOneField(UserResource, 'user', blank=True)
 
     class Meta:
         queryset = Follow.objects.all()
-        allowed_methods = ['post']
-        authorization = UserObjectsOnlyAuthorization()
+        allowed_methods = ['post', 'delete']
+        authorization = RelateUserAuthorization()
         authentication = ExpireApiKeyAuthentication()
         resource_name = "create_follow"
         always_return_data = True
@@ -72,14 +77,69 @@ class FollowResource(ManticoreModelResource):
 
     class Meta:
         queryset = Follow.objects.all()
-        allowed_methods = ['get', 'delete']
-        authorization = UserObjectsOnlyAuthorization()
-        authentication = ExpireApiKeyAuthentication()
+        allowed_methods = ['get']
+        authorization = ReadOnlyAuthorization()
+        authentication = MultiAuthentication(ExpireApiKeyAuthentication(), Authentication())
         resource_name = "follow"
         object_name = "follow"
         filtering = {
             'object_id': ['exact'],
         }
+
+
+# Create or destroy a user follow relationship for an authenticated user
+class FollowUserResource(CreateFollowResource):
+    user_to_follow = BareGenericForeignKeyField({User: SearchUserResource}, 'content_object')
+
+    class Meta(CreateFollowResource.Meta):
+        resource_name = "follow_user"
+        object_name = "follow_user"
+
+    def obj_create(self, bundle, **kwargs):
+        bundle = super(FollowUserResource, self).obj_create(bundle, **kwargs)
+        # create_notification(bundle.obj.content_object, bundle.obj.user_profile, bundle.obj.user_profile, Notification.TYPES.follow)
+        return bundle
+
+
+# List of users a specified user is following
+class FollowingUsersResource(FollowResource):
+    # There will be a list of user_being_followed objects. user_being_followed is the generic relationship
+    # in the Follow model
+    user_being_followed = BareGenericForeignKeyField({User: SearchUserResource}, 'content_object', full=True)
+
+    # user is the owner of the Follow object, and is the user whose profile we are viewing
+    user = fields.ToOneField(SearchUserResource, 'user', full=False)
+
+    class Meta(FollowResource.Meta):
+        queryset = Follow.objects.filter(content_type=ContentType.objects.get_for_model(User))
+        allowed_methods = ['get']
+        resource_name = "following_users"
+        # Since we want a list of objects being followed (user_being_followed), we are filtering on Follow object owner,
+        # which is user
+        # An example api call to get all the users that user 1 is following would be:
+        # /api/v1/following_users/?user=1&format=json
+        filtering = {
+            'user': ALL_WITH_RELATIONS
+        }
+
+
+# List of users that are following the specified user
+class UserFollowersResource(FollowResource):
+    # user is the owner of the Follow object
+    user = fields.ToOneField(SearchUserResource, 'user', full=True)
+
+    # user_being_followed is the user whose profile we are viewing
+    user_being_followed = BareGenericForeignKeyField({User: SearchUserResource}, 'content_object', full=False)
+
+    # filtering attribute is not required because filtering is defined on FollowResource.Meta
+    # FollowResource.Meta allows filtering on object_id, which is the id of the object being followed (the
+    # generic relationship).
+    # In this case, the object being followed is a user, so to get the list of people following user 1,
+    # the api call would look like: /api/v1/user_followers/?object_id=1&format=json
+    class Meta(FollowResource.Meta):
+        queryset = Follow.objects.filter(content_type=ContentType.objects.get_for_model(User))
+        allowed_methods = ['get']
+        resource_name = "user_followers"
 
 
 class LikeResource(ManticoreModelResource):

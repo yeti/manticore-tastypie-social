@@ -6,13 +6,17 @@ from django.conf import settings
 from social.apps.django_app.default.models import UserSocialAuth
 from tastypie.exceptions import BadRequest
 from twython import Twython
-from manticore_tastypie_social.manticore_tastypie_social.resources import TagResource, FollowResource, AirshipTokenResource, NotificationSettingResource, SocialProviderResource
+from manticore_tastypie_social.manticore_tastypie_social.resources import TagResource, FollowResource, AirshipTokenResource, NotificationSettingResource, SocialProviderResource, \
+    FollowUserResource, FollowingUsersResource, UserFollowersResource
 
 
 # Registers this library's resources
 def register_api(api):
     api.register(TagResource())
     api.register(FollowResource())
+    api.register(FollowUserResource())
+    api.register(FollowingUsersResource())
+    api.register(UserFollowersResource())
     api.register(AirshipTokenResource())
     api.register(NotificationSettingResource())
     api.register(SocialProviderResource())
