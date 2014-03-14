@@ -148,7 +148,7 @@ class LikeResource(ManticoreModelResource):
     class Meta:
         queryset = Like.objects.all()
         allowed_methods = ['post']
-        authorization = UserObjectsOnlyAuthorization()
+        authorization = RelateUserAuthorization()
         authentication = ExpireApiKeyAuthentication()
         resource_name = "like"
         always_return_data = True
@@ -166,7 +166,7 @@ class FlagResource(ManticoreModelResource):
     class Meta:
         queryset = Flag.objects.all()
         allowed_methods = ['post']
-        authorization = UserObjectsOnlyAuthorization()
+        authorization = RelateUserAuthorization()
         authentication = ExpireApiKeyAuthentication()
         resource_name = "flag"
         always_return_data = True
@@ -178,7 +178,7 @@ class AirshipTokenResource(ManticoreModelResource):
     class Meta:
         queryset = AirshipToken.objects.all()
         allowed_methods = ['get', 'post']
-        authorization = UserObjectsOnlyAuthorization()
+        authorization = RelateUserAuthorization()
         authentication = ExpireApiKeyAuthentication()
         resource_name = "airship_token"
         always_return_data = True
@@ -210,7 +210,7 @@ class NotificationSettingResource(ManticoreModelResource):
     class Meta:
         queryset = NotificationSetting.objects.all()
         allowed_methods = ['get', 'patch']
-        authorization = UserObjectsOnlyAuthorization()
+        authorization = RelateUserAuthorization()
         authentication = ExpireApiKeyAuthentication()
         resource_name = "notification_setting"
         always_return_data = True
@@ -226,7 +226,7 @@ class NotificationResource(ManticoreModelResource):
     class Meta:
         queryset = Notification.objects.all()
         allowed_methods = ['get']
-        authorization = UserObjectsOnlyAuthorization()
+        authorization = RelateUserAuthorization()
         authentication = ExpireApiKeyAuthentication()
         resource_name = "notification"
         object_name = "notification"
@@ -245,7 +245,7 @@ class FriendActionResource(ManticoreModelResource):
     class Meta:
         queryset = FriendAction.objects.all()
         allowed_methods = ['get']
-        authorization = UserObjectsOnlyAuthorization()
+        authorization = RelateUserAuthorization()
         authentication = ExpireApiKeyAuthentication()
         resource_name = "friend_action"
         object_name = "friend_action"
