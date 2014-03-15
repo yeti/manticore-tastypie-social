@@ -156,7 +156,7 @@ class LikeResource(ManticoreModelResource):
 
     def obj_create(self, bundle, **kwargs):
         bundle = super(LikeResource, self).obj_create(bundle, **kwargs)
-        create_friend_action(bundle.obj.user, bundle.obj.content_object, FriendAction.TYPES.like)
+        # create_friend_action(bundle.obj.user, bundle.obj.content_object, FriendAction.TYPES.like)
         return bundle
 
 
