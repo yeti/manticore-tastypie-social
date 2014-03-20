@@ -273,6 +273,22 @@ class SocialProviderResource(ManticoreModelResource):
 
 
 class SocialShareResource(ManticoreModelResource):
+    providers = fields.ListField(null=True)
+
+    def obj_create(self, bundle, **kwargs):
+        bundle = super(SocialShareResource, self).obj_create(bundle, **kwargs)
+
+        if 'providers' in bundle.data:
+            for provider in bundle.data['providers']:
+                try:
+                    user_social_auth = UserSocialAuth.objects.get(user=bundle.request.user, provider=provider)
+
+                    # Inline import to remove recursive importing
+                    from manticore_tastypie_social.manticore_tastypie_social.utils import post_social_media
+                    post_social_media.apply_async((user_social_auth, bundle.obj), countdown=settings.SOCIAL_SHARE_DELAY)
+                except UserSocialAuth.DoesNotExist:
+                    pass
+        return bundle
 
     def prepend_urls(self):
         return [
