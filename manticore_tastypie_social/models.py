@@ -1,5 +1,7 @@
 import abc
 from django.contrib.auth import get_user_model
+from django.contrib.sites.models import Site
+from django.utils.baseconv import base62
 import re
 from django.conf import settings
 from django.contrib.contenttypes import generic
@@ -283,3 +285,24 @@ def create_friend_action(user, content_object, action_type):
 # Currently available social providers
 class SocialProvider(CoreModel):
     name = models.CharField(max_length=20)
+
+
+class BaseSocialModel(models.Model):
+    """
+    This is an abstract model to be inherited by the main "object" being used in feeds on a social media application.
+    It expects that object to override the methods below.
+    """
+
+    class Meta:
+        abstract = True
+
+    def url(self):
+        current_site = Site.objects.get_current()
+        return "http://{0}/{1}/".format(current_site.domain, base62.encode(self.pk))
+
+    def facebook_og_info(self):
+        # return {'action': '', 'object': '', 'url': self.url()}
+        raise NotImplementedError("This has not been implemented")
+
+    def create_social_message(self, provider):
+        raise NotImplementedError("This has not been implemented")

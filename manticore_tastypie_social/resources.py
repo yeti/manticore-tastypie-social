@@ -1,17 +1,20 @@
 from datetime import timedelta
 from django.conf import settings
+from django.conf.urls import url
 from django.contrib.auth import get_user_model
 from django.contrib.contenttypes.models import ContentType
-from tastypie import fields
+from social.apps.django_app.default.models import UserSocialAuth
+from tastypie import fields, http
 from tastypie.authentication import MultiAuthentication, Authentication
 from tastypie.authorization import Authorization, ReadOnlyAuthorization
 from tastypie.constants import ALL_WITH_RELATIONS
 from tastypie.exceptions import BadRequest
-from tastypie.utils import now
+from tastypie.utils import now, dict_strip_unicode_keys
 import urbanairship
 from manticore_tastypie_core.manticore_tastypie_core.fields import BareGenericForeignKeyField
 from manticore_tastypie_core.manticore_tastypie_core.resources import ManticoreModelResource
-from manticore_tastypie_social.manticore_tastypie_social.models import Tag, Comment, Follow, Like, Flag, AirshipToken, NotificationSetting, Notification, create_friend_action, FriendAction, SocialProvider
+from manticore_tastypie_social.manticore_tastypie_social.models import Tag, Comment, Follow, Like, Flag, AirshipToken, NotificationSetting, Notification, create_friend_action, FriendAction, SocialProvider, \
+    create_notification
 from manticore_tastypie_user.manticore_tastypie_user.authentication import ExpireApiKeyAuthentication
 from manticore_tastypie_user.manticore_tastypie_user.authorization import UserObjectsOnlyAuthorization, \
     RelateUserAuthorization
@@ -267,3 +270,44 @@ class SocialProviderResource(ManticoreModelResource):
         object_name = "social_provider"
         detail_uri_name = 'name'
         fields = ['name']
+
+
+class SocialShareResource(ManticoreModelResource):
+
+    def prepend_urls(self):
+        return [
+            url(r"^(?P<resource_name>%s)/social_share/(?P<pk>\w[\w/-]*)/$" % self._meta.resource_name, self.wrap_view('social_share'), name="api_social_share"),
+        ]
+
+    def social_share(self, request, **kwargs):
+        self.method_check(request, allowed=['post'])
+        self.is_authenticated(request)
+
+        try:
+            report = self._meta.queryset._clone().get(pk=kwargs['pk'])
+        except self._meta.object_class.DoesNotExist:
+            return http.HttpNotFound()
+
+        deserialized = self.deserialize(request, request.body, format=request.META.get('CONTENT_TYPE', 'application/json'))
+        bundle = self.build_bundle(obj=report, request=request, data=dict_strip_unicode_keys(deserialized))
+
+        if 'provider' not in bundle.data:
+            return self.error_response(request, {"error": "No provider parameter given"}, response_class=http.HttpBadRequest)
+
+        try:
+            user_social_auth = UserSocialAuth.objects.get(user=bundle.request.user, provider=bundle.data['provider'])
+
+            # Inline import to remove recursive importing
+            from manticore_tastypie_social.manticore_tastypie_social.utils import post_social_media
+            post_social_media.delay(user_social_auth, bundle.obj)
+        except UserSocialAuth.DoesNotExist:
+            print "caught error higher up"
+            return self.error_response(request, {"error": "User is not authenticated with %s" % bundle.data['provider']}, response_class=http.HttpBadRequest)
+        except BadRequest, e:
+            return self.error_response(request, {"error": e}, response_class=http.HttpBadRequest)
+
+        bundle = self.full_dehydrate(bundle)
+
+        # create_notification(bundle.obj.user_profile, bundle.request.user.get_profile(), bundle.obj, Notification.TYPES.shared)
+
+        return self.create_response(request, bundle, response_class=http.HttpAccepted)

@@ -1,3 +1,5 @@
+from django.core.exceptions import ImproperlyConfigured
+import requests
 import urllib
 import urllib2
 from celery.task import task
@@ -50,60 +52,54 @@ def post_to_facebook_og(app_access_token, user_social_auth, obj):
         'access_token': app_access_token,
     }
 
-    req = urllib2.Request(url, urllib.urlencode(params))
-    urllib2.urlopen(req)
+    requests.post(url, params=params)
 
 
 @task
-def post_social_media(user, message, provider, link, location, object_class, pk, raise_error=True):
+def post_social_media(user_social_auth, obj):
+    message = obj.create_social_message(user_social_auth.provider)
+    link = obj.url()
+
+    if user_social_auth.provider == 'facebook':
+        if settings.USE_FACEBOOK_OG:
+            social_model = get_social_model()
+            social_object = social_model.objects.get(pk=obj.pk)
+            try:
+                post_to_facebook_og(settings.FACEBOOK_APP_ACCESS_TOKEN, user_social_auth, social_object)
+            except Exception as e:
+                print e
+                pass
+        else:
+            post_to_facebook(settings.FACEBOOK_APP_ACCESS_TOKEN, user_social_auth, message, link)
+    elif user_social_auth.provider == 'twitter':
+        twitter = Twython(
+            app_key=settings.SOCIAL_AUTH_TWITTER_KEY,
+            app_secret=settings.SOCIAL_AUTH_TWITTER_SECRET,
+            oauth_token=user_social_auth.tokens['oauth_token'],
+            oauth_token_secret=user_social_auth.tokens['oauth_token_secret']
+        )
+
+        full_message_url = "{0} {1}".format(message, link)
+
+        # 140 characters minus the length of the link minus the space minus 3 characters for the ellipsis
+        message_trunc = 140 - len(link) - 1 - 3
+
+        # Truncate the message if the message + url is over 140
+        safe_message = ("{0}... {1}".format(message[:message_trunc], link)) if len(full_message_url) > 140 else full_message_url
+        twitter.update_status(status=safe_message, wrap_links=True)
+
+
+def get_social_model():
+    """
+    Returns the social model that is active in this project.
+    """
+    from django.db.models import get_model
+
     try:
-        user_social_auth = UserSocialAuth.objects.get(user=user, provider=provider)
-
-        if user_social_auth.provider == 'facebook':
-            if settings.USE_FACEBOOK_OG:
-                social_object = object_class.objects.get(pk=pk)
-
-                try:
-                    post_to_facebook_og(settings.FACEBOOK_APP_ACCESS_TOKEN, user_social_auth, social_object)
-                except urllib2.HTTPError:
-                    # Error in launching app with dev facebook credentials, if we get a HTTPError retry with dev credentials
-                    post_to_facebook_og(settings.FACEBOOK_APP_ACCESS_TOKEN_DEV, user_social_auth, social_object)
-            else:
-                try:
-                    post_to_facebook(settings.FACEBOOK_APP_ACCESS_TOKEN, user_social_auth, message, link)
-                except urllib2.HTTPError:
-                    # Error in launching app with dev facebook credentials, if we get a HTTPError retry with dev credentials
-                    post_to_facebook(settings.FACEBOOK_APP_ACCESS_TOKEN_DEV, user_social_auth, message, link)
-        elif user_social_auth.provider == 'twitter':
-            twitter = Twython(
-                app_key=settings.TWITTER_CONSUMER_KEY,
-                app_secret=settings.TWITTER_CONSUMER_SECRET,
-                oauth_token=user_social_auth.tokens['oauth_token'],
-                oauth_token_secret=user_social_auth.tokens['oauth_token_secret']
-            )
-
-            full_message_url = "{0} {1}".format(message, link)
-
-            # 140 characters minus the length of the link minus the space minus 3 characters for the ellipsis
-            message_trunc = 140 - len(link) - 1 - 3
-
-            # Truncate the message if the message + url is over 140
-            safe_message = ("{0}... {1}".format(message[:message_trunc], link)) if len(full_message_url) > 140 else full_message_url
-            twitter.update_status(status=safe_message, wrap_links=True)
-        # elif user_social_auth.provider == 'foursquare':
-        #     if location:
-        #         client = foursquare.Foursquare(client_id=settings.FOURSQUARE_CONSUMER_KEY, client_secret=settings.FOURSQUARE_CONSUMER_SECRET, access_token=user_social_auth.extra_data['access_token'])
-        #         coords = "%s,%s" % (location.latitude, location.longitude)
-        #         query = client.venues.search(params={"intent": "match", "ll": coords, "query": location.name, "limit": 1})
-        #         if len(query['venues']) > 0:
-        #             venue = query['venues'][0]
-        #             client.checkins.add(params={"venueId": venue['id'], "ll": coords, "shout": message})
-        #         else:
-        #             raise BadRequest("Matching foursquare location not found")
-        #     else:
-        #         raise BadRequest("No location provided for foursquare")
-        elif raise_error:
-            raise BadRequest("Does not support this provider: %s" % provider)
-    except (UserSocialAuth.DoesNotExist, urllib2.HTTPError, ValueError, IOError), e:
-        if raise_error:
-            raise e
+        app_label, model_name = settings.SOCIAL_MODEL.split('.')
+    except ValueError:
+        raise ImproperlyConfigured("SOCIAL_MODEL must be of the form 'app_label.model_name'")
+    social_model = get_model(app_label, model_name)
+    if social_model is None:
+        raise ImproperlyConfigured("SOCIAL_MODEL refers to model '%s' that has not been installed" % settings.SOCIAL_MODEL)
+    return social_model
