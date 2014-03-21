@@ -64,11 +64,7 @@ def post_social_media(user_social_auth, obj):
         if settings.USE_FACEBOOK_OG:
             social_model = get_social_model()
             social_object = social_model.objects.get(pk=obj.pk)
-            try:
-                post_to_facebook_og(settings.FACEBOOK_APP_ACCESS_TOKEN, user_social_auth, social_object)
-            except Exception as e:
-                print e
-                pass
+            post_to_facebook_og(settings.FACEBOOK_APP_ACCESS_TOKEN, user_social_auth, social_object)
         else:
             post_to_facebook(settings.FACEBOOK_APP_ACCESS_TOKEN, user_social_auth, message, link)
     elif user_social_auth.provider == 'twitter':

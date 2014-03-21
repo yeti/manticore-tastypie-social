@@ -317,7 +317,6 @@ class SocialShareResource(ManticoreModelResource):
             from manticore_tastypie_social.manticore_tastypie_social.utils import post_social_media
             post_social_media.delay(user_social_auth, bundle.obj)
         except UserSocialAuth.DoesNotExist:
-            print "caught error higher up"
             return self.error_response(request, {"error": "User is not authenticated with %s" % bundle.data['provider']}, response_class=http.HttpBadRequest)
         except BadRequest, e:
             return self.error_response(request, {"error": e}, response_class=http.HttpBadRequest)
