@@ -300,12 +300,12 @@ class SocialShareResource(ManticoreModelResource):
         self.is_authenticated(request)
 
         try:
-            report = self._meta.queryset._clone().get(pk=kwargs['pk'])
+            social_obj = self._meta.queryset._clone().get(pk=kwargs['pk'])
         except self._meta.object_class.DoesNotExist:
             return http.HttpNotFound()
 
         deserialized = self.deserialize(request, request.body, format=request.META.get('CONTENT_TYPE', 'application/json'))
-        bundle = self.build_bundle(obj=report, request=request, data=dict_strip_unicode_keys(deserialized))
+        bundle = self.build_bundle(obj=social_obj, request=request, data=dict_strip_unicode_keys(deserialized))
 
         if 'provider' not in bundle.data:
             return self.error_response(request, {"error": "No provider parameter given"}, response_class=http.HttpBadRequest)
