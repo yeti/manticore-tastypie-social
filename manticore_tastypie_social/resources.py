@@ -103,6 +103,12 @@ class FollowUserResource(CreateFollowResource):
         # create_notification(bundle.obj.content_object, bundle.obj.user_profile, bundle.obj.user_profile, Notification.TYPES.follow)
         return bundle
 
+    def obj_delete(self, bundle, **kwargs):
+        # Allow client to hit "/api/v1/follow_user/:id/" with DELETE to delete follow relationship on user
+        # with :id, rather than delete the Follow object with that id
+        bundle.obj = Follow.objects.get(user=bundle.request.user, object_id=kwargs['pk'])
+        super(CreateFollowResource, self).obj_delete(bundle, **kwargs)
+
 
 # List of users a specified user is following
 class FollowingUsersResource(FollowResource):
