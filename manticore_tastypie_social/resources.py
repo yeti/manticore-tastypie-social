@@ -8,11 +8,12 @@ from tastypie import fields, http
 from tastypie.authentication import MultiAuthentication, Authentication
 from tastypie.authorization import Authorization, ReadOnlyAuthorization
 from tastypie.constants import ALL_WITH_RELATIONS
-from tastypie.exceptions import BadRequest
+from tastypie.exceptions import BadRequest, Unauthorized
 from tastypie.utils import now, dict_strip_unicode_keys
 import urbanairship
 from manticore_tastypie_core.manticore_tastypie_core.fields import BareGenericForeignKeyField
 from manticore_tastypie_core.manticore_tastypie_core.resources import ManticoreModelResource
+from manticore_tastypie_social.manticore_tastypie_social.authorization import SocialAuthorization
 from manticore_tastypie_social.manticore_tastypie_social.models import Tag, Comment, Follow, Like, Flag, AirshipToken, NotificationSetting, Notification, create_friend_action, FriendAction, SocialProvider, \
     create_notification
 from manticore_tastypie_user.manticore_tastypie_user.authentication import ExpireApiKeyAuthentication
@@ -270,7 +271,7 @@ class SocialProviderResource(ManticoreModelResource):
     class Meta:
         queryset = SocialProvider.objects.all()
         allowed_methods = ['get']
-        authorization = Authorization()
+        authorization = SocialAuthorization()
         authentication = ExpireApiKeyAuthentication()
         resource_name = "social_provider"
         object_name = "social_provider"
@@ -312,6 +313,15 @@ class SocialShareResource(ManticoreModelResource):
 
         deserialized = self.deserialize(request, request.body, format=request.META.get('CONTENT_TYPE', 'application/json'))
         bundle = self.build_bundle(obj=social_obj, request=request, data=dict_strip_unicode_keys(deserialized))
+
+        try:
+            auth_result = self._meta.authorization.share_detail(None, bundle)
+            if not auth_result is True:
+                raise Unauthorized()
+        except Unauthorized as e:
+            self.unauthorized_result(e)
+        except AttributeError as e:
+            raise NotImplementedError("You must create a share_detail authorization method")
 
         if 'provider' not in bundle.data:
             return self.error_response(request, {"error": "No provider parameter given"}, response_class=http.HttpBadRequest)
