@@ -101,8 +101,7 @@ class FollowUserResource(CreateFollowResource):
 
     def obj_create(self, bundle, **kwargs):
         bundle = super(FollowUserResource, self).obj_create(bundle, **kwargs)
-        create_notification(bundle.obj.content_object, bundle.obj.user, bundle.obj.user,
-                            Notification.TYPES.follow)
+        create_notification(bundle.obj.content_object, bundle.obj.user, bundle.obj.user, Notification.TYPES.follow)
         return bundle
 
     def obj_delete(self, bundle, **kwargs):
