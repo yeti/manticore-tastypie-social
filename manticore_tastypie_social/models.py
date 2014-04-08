@@ -119,7 +119,7 @@ class Follow(CoreModel):
 
     @property
     def name(self):
-        #object must be registered with FollowableModel
+        # object must be registered with FollowableModel
         return self.content_object.identifier()
 
     class Meta:
@@ -157,17 +157,8 @@ class AirshipToken(CoreModel):
     expired = models.BooleanField(default=False)
 
 
-#TODO: Need to abstract 'report' out
 class Notification(CoreModel):
-    TYPES = Choices(
-        (0, 'follow', _('started following you')),
-        (1, 'like', _('liked your report')),
-        (2, 'comment', _('commented on your report')),
-        (3, 'shared', _('shared your report')),
-        (4, 'mention', _('mentioned you')),
-        (5, 'trending', _('your report is trending')),
-        (6, 'friend', _('your friend just signed up')),
-    )
+    TYPES = Choices(*settings.SOCIAL_NOTIFICATION_TYPES)
     notification_type = models.PositiveSmallIntegerField(choices=TYPES)
     user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="receiver", null=True)
     reporter = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="reporter", null=True, blank=True)
@@ -180,29 +171,21 @@ class Notification(CoreModel):
         return unicode(Notification.TYPES[self.notification_type][1])
 
     def push_message(self):
-        # If this is a comment on an object the receiving user doesn't own, change the default message
-        if self.notification_type == self.TYPES.comment and self.content_object.user != self.user:
-            message = "@%s commented on @%s's report" % (self.reporter.username, self.content_object.user.username)
-        elif self.notification_type == self.TYPES.trending:
-            message = "Your report is trending!"
-        elif self.notification_type == self.TYPES.friend:
-            message = "Your friend just signed up as @%s" % self.reporter.username
-        else:
-            message = "@%s %s" % (self.reporter.username, self.message())
-
-        return message
+        return "{0} {1}".format(self.reporter, self.message())
 
     def name(self):
-        return u"%s" % Notification.TYPES._full[self.notification_type][1]
+        return u"{0}".format(Notification.TYPES._triples[self.notification_type][1])
 
     def display_name(self):
-        return u"%s" % self.get_notification_type_display()
+        return u"{0}".format(self.get_notification_type_display())
 
     class Meta:
         ordering = ['-created']
 
+
 def create_notification(receiver, reporter, content_object, notification_type):
-    # If the receiver of this notification is the same as the reporter or if the user has blocked this type, then don't create
+    # If the receiver of this notification is the same as the reporter or
+    # if the user has blocked this type, then don't create
     if receiver == reporter or not NotificationSetting.objects.get(notification_type=notification_type, user=receiver).allow:
         return
 
@@ -230,14 +213,14 @@ class NotificationSetting(CoreModel):
         unique_together = ('notification_type', 'user')
 
     def name(self):
-        return u"%s" % Notification.TYPES._full[self.notification_type][1]
+        return u"{0}".format(Notification.TYPES._triples[self.notification_type][1])
 
     def display_name(self):
-        return u"%s" % self.get_notification_type_display()
+        return u"{0}".format(self.get_notification_type_display())
 
 
 def create_notifications(sender, **kwargs):
-    sender_name = "%s.%s" % (sender._meta.app_label, sender._meta.object_name)
+    sender_name = "{0}.{1}".format(sender._meta.app_label, sender._meta.object_name)
     if sender_name.lower() != settings.AUTH_USER_MODEL.lower():
         return
 
@@ -248,13 +231,10 @@ def create_notifications(sender, **kwargs):
 post_save.connect(create_notifications)
 
 
-#TODO: Need to abstract out 'report'
 class FriendAction(CoreModel):
-    TYPES = Choices(
-        (0, 'follow', _('is following')),
-        (1, 'like', _('liked a report')),
-        (2, 'comment', _('commented on a report')),
-    )
+    TYPES = Choices(*settings.SOCIAL_FRIEND_ACTIONS)
+
+    # Unpack the list of social friend actions from the settings
     action_type = models.PositiveSmallIntegerField(choices=TYPES)
     user = models.ForeignKey(settings.AUTH_USER_MODEL)
 
@@ -263,13 +243,13 @@ class FriendAction(CoreModel):
     content_object = generic.GenericForeignKey()
 
     def message(self):
-        return unicode(Notification.TYPES[self.action_type][1])
+        return unicode(self.TYPES[self.action_type][1])
 
     def name(self):
-        return u"%s" % Notification.TYPES._full[self.action_type][1]
+        return u"{0}".format(self.TYPES._triples[self.action_type][1])
 
     def display_name(self):
-        return u"%s" % self.get_action_type_display()
+        return u"{0}".format(self.get_action_type_display())
 
     class Meta:
         ordering = ['-created']

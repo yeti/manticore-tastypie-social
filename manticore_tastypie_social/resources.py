@@ -101,7 +101,8 @@ class FollowUserResource(CreateFollowResource):
 
     def obj_create(self, bundle, **kwargs):
         bundle = super(FollowUserResource, self).obj_create(bundle, **kwargs)
-        # create_notification(bundle.obj.content_object, bundle.obj.user_profile, bundle.obj.user_profile, Notification.TYPES.follow)
+        create_notification(bundle.obj.content_object, bundle.obj.user, bundle.obj.user,
+                            Notification.TYPES.follow)
         return bundle
 
     def obj_delete(self, bundle, **kwargs):
@@ -166,7 +167,7 @@ class LikeResource(ManticoreModelResource):
 
     def obj_create(self, bundle, **kwargs):
         bundle = super(LikeResource, self).obj_create(bundle, **kwargs)
-        # create_friend_action(bundle.obj.user, bundle.obj.content_object, FriendAction.TYPES.like)
+        create_friend_action(bundle.obj.user, bundle.obj.content_object, FriendAction.TYPES.like)
         return bundle
 
 
@@ -188,7 +189,7 @@ class AirshipTokenResource(ManticoreModelResource):
     class Meta:
         queryset = AirshipToken.objects.all()
         allowed_methods = ['get', 'post']
-        authorization = RelateUserAuthorization()
+        authorization = UserObjectsOnlyAuthorization()
         authentication = ExpireApiKeyAuthentication()
         resource_name = "airship_token"
         always_return_data = True
@@ -214,13 +215,13 @@ class AirshipTokenResource(ManticoreModelResource):
 
 
 class NotificationSettingResource(ManticoreModelResource):
-    name = fields.CharField(attribute='name')
-    display_name = fields.CharField(attribute='display_name')
+    name = fields.CharField(attribute='name', blank=True)
+    display_name = fields.CharField(attribute='display_name', blank=True)
 
     class Meta:
         queryset = NotificationSetting.objects.all()
         allowed_methods = ['get', 'patch']
-        authorization = RelateUserAuthorization()
+        authorization = UserObjectsOnlyAuthorization()
         authentication = ExpireApiKeyAuthentication()
         resource_name = "notification_setting"
         always_return_data = True
@@ -236,7 +237,7 @@ class NotificationResource(ManticoreModelResource):
     class Meta:
         queryset = Notification.objects.all()
         allowed_methods = ['get']
-        authorization = RelateUserAuthorization()
+        authorization = UserObjectsOnlyAuthorization()
         authentication = ExpireApiKeyAuthentication()
         resource_name = "notification"
         object_name = "notification"
@@ -255,7 +256,7 @@ class FriendActionResource(ManticoreModelResource):
     class Meta:
         queryset = FriendAction.objects.all()
         allowed_methods = ['get']
-        authorization = RelateUserAuthorization()
+        authorization = UserObjectsOnlyAuthorization()
         authentication = ExpireApiKeyAuthentication()
         resource_name = "friend_action"
         object_name = "friend_action"
@@ -339,6 +340,6 @@ class SocialShareResource(ManticoreModelResource):
 
         bundle = self.full_dehydrate(bundle)
 
-        # create_notification(bundle.obj.user_profile, bundle.request.user.get_profile(), bundle.obj, Notification.TYPES.shared)
+        # create_notification(bundle.obj.user, bundle.request.user, bundle.obj, Notification.TYPES.shared)
 
         return self.create_response(request, bundle, response_class=http.HttpAccepted)
