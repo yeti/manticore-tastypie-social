@@ -12,12 +12,5 @@
         "fields": {
             "name": "twitter"
         }
-    },
-    {
-        "pk": "3",
-        "model": "manticore_tastypie_social.socialprovider",
-        "fields": {
-            "name": "foursquare"
-        }
     }
 ]
