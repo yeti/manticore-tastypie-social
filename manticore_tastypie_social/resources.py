@@ -205,7 +205,8 @@ class AirshipTokenResource(ManticoreModelResource):
 
                 bundle.obj = AirshipToken(user=bundle.request.user, token=bundle.data['token'])
                 bundle.obj.save()
-            except urbanairship.AirshipFailure:
+            except urbanairship.AirshipFailure as e:
+                print e
                 raise BadRequest("Failed Authentication")
 
             return bundle

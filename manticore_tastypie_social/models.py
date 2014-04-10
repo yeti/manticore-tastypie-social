@@ -199,7 +199,12 @@ def create_notification(receiver, reporter, content_object, notification_type):
         try:
             device_tokens = list(AirshipToken.objects.filter(user=receiver, expired=False).values_list('token', flat=True))
             airship = urbanairship.Airship(settings.AIRSHIP_APP_KEY, settings.AIRSHIP_APP_MASTER_SECRET)
-            airship.push({'aps': {'alert': notification.push_message(), 'badge': '+1'}}, device_tokens=device_tokens)
+
+            push = airship.create_push()
+            push.audience = urbanairship.or_(urbanairship.device_token(device_token) for device_token in device_tokens)
+            push.notification = urbanairship.notification(ios=urbanairship.ios(alert=notification.message(), badge='+1'))
+            push.device_types = urbanairship.all_
+            push.send()
         except urbanairship.AirshipFailure:
             pass
 
