@@ -272,7 +272,7 @@ class SocialProviderResource(ManticoreModelResource):
     class Meta:
         queryset = SocialProvider.objects.all()
         allowed_methods = ['get']
-        authorization = SocialAuthorization()
+        authorization = Authorization()
         authentication = ExpireApiKeyAuthentication()
         resource_name = "social_provider"
         object_name = "social_provider"
@@ -282,6 +282,9 @@ class SocialProviderResource(ManticoreModelResource):
 
 class SocialShareResource(ManticoreModelResource):
     providers = fields.ListField(null=True)
+
+    class Meta:
+        authorization = SocialAuthorization()
 
     def obj_create(self, bundle, **kwargs):
         bundle = super(SocialShareResource, self).obj_create(bundle, **kwargs)
