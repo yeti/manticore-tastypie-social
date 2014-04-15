@@ -171,7 +171,7 @@ class LikeResource(ManticoreModelResource):
 
 
 class FlagResource(ManticoreModelResource):
-    user = fields.ToOneField(UserResource, 'user')
+    user = fields.ToOneField(UserResource, 'user', blank=True)
 
     class Meta:
         queryset = Flag.objects.all()
