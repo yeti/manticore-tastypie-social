@@ -168,7 +168,7 @@ class Notification(CoreModel):
     content_object = generic.GenericForeignKey()
 
     def message(self):
-        return unicode(Notification.TYPES[self.notification_type][1])
+        return unicode(Notification.TYPES._triples[self.notification_type][1])
 
     def push_message(self):
         return "{0} {1}".format(self.reporter, self.message())
@@ -203,7 +203,7 @@ def create_notification(receiver, reporter, content_object, notification_type):
             for device_token in device_tokens:
                 push = airship.create_push()
                 push.audience = urbanairship.device_token(device_token)
-                push.notification = urbanairship.notification(ios=urbanairship.ios(alert=notification.message(), badge='+1'))
+                push.notification = urbanairship.notification(ios=urbanairship.ios(alert=notification.push_message(), badge='+1'))
                 push.device_types = urbanairship.device_types('ios')
                 push.send()
         except urbanairship.AirshipFailure:
