@@ -204,7 +204,7 @@ def create_notification(receiver, reporter, content_object, notification_type):
                 push = airship.create_push()
                 push.audience = urbanairship.device_token(device_token)
                 push.notification = urbanairship.notification(ios=urbanairship.ios(alert=notification.message(), badge='+1'))
-                push.device_types = urbanairship.all_
+                push.device_types = urbanairship.device_types('ios')
                 push.send()
         except urbanairship.AirshipFailure:
             pass
