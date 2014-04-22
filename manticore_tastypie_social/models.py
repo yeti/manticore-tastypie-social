@@ -168,7 +168,7 @@ class Notification(CoreModel):
     content_object = generic.GenericForeignKey()
 
     def message(self):
-        return unicode(Notification.TYPES._triples[self.notification_type][1])
+        return unicode(Notification.TYPES._triples[self.notification_type][2])
 
     def push_message(self):
         return "{0} {1}".format(self.reporter, self.message())
