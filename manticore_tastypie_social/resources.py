@@ -3,6 +3,7 @@ from django.conf import settings
 from django.conf.urls import url
 from django.contrib.auth import get_user_model
 from django.contrib.contenttypes.models import ContentType
+import requests
 from social.apps.django_app.default.models import UserSocialAuth
 from tastypie import fields, http
 from tastypie.authentication import MultiAuthentication, Authentication
@@ -11,6 +12,7 @@ from tastypie.constants import ALL_WITH_RELATIONS
 from tastypie.exceptions import BadRequest, Unauthorized
 from tastypie.utils import now, dict_strip_unicode_keys
 import urbanairship
+from urllib2 import HTTPError
 from manticore_tastypie_core.manticore_tastypie_core.fields import BareGenericForeignKeyField
 from manticore_tastypie_core.manticore_tastypie_core.resources import ManticoreModelResource
 from manticore_tastypie_social.manticore_tastypie_social.authorization import SocialAuthorization
@@ -346,3 +348,37 @@ class SocialShareResource(ManticoreModelResource):
         # create_notification(bundle.obj.user, bundle.request.user, bundle.obj, Notification.TYPES.shared)
 
         return self.create_response(request, bundle, response_class=http.HttpAccepted)
+
+
+class FacebookFriendsResource(SearchUserResource):
+
+    class Meta(SearchUserResource.Meta):
+        queryset = User.objects.all()
+        allowed_methods = ['get']
+        authorization = ReadOnlyAuthorization()
+        authentication = ExpireApiKeyAuthentication()
+        resource_name = "facebook_friends"
+
+    def obj_get_list(self, bundle, **kwargs):
+        qs = super(SearchUserResource, self).obj_get_list(bundle, **kwargs)
+
+        user_ids = []
+        try:
+            user_social_auth = UserSocialAuth.objects.get(user=bundle.request.user, provider='facebook')
+            if user_social_auth:
+                url = "https://graph.facebook.com/v2.0/{0}/friends?access_token={1}&fields=id,name,installed&limit=1000".format(user_social_auth.uid,
+                                                                                                                                settings.SOCIAL_AUTH_FACEBOOK_APP_TOKEN)
+                response = requests.get(url)
+                if response.status_code == 200:
+                    for friend in response.json()['data']:
+                        if UserSocialAuth.objects.filter(uid=friend['id'], provider='facebook').exists():
+                            friend_social_auth = UserSocialAuth.objects.get(uid=friend['id'], provider='facebook')
+                            user_ids.append(friend_social_auth.user.pk)
+                else:
+                    raise BadRequest("Was not able to connect to facebook")
+        except UserSocialAuth.DoesNotExist:
+            raise BadRequest("Not signed into facebook")
+        except HTTPError, e:
+            print e
+
+        return qs.distinct().filter(pk__in=user_ids)
