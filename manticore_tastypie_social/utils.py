@@ -57,7 +57,8 @@ def post_to_facebook_og(app_access_token, user_social_auth, obj):
 
 
 @task
-def post_social_media(user_social_auth, obj):
+def post_social_media(user_social_auth, social_obj_pk):
+    obj = get_social_model().objects.get(pk=social_obj_pk)
     message = obj.create_social_message(user_social_auth.provider)
     link = obj.url()
 

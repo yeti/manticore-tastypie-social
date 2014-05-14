@@ -298,7 +298,7 @@ class SocialShareResource(ManticoreModelResource):
 
                     # Inline import to remove recursive importing
                     from manticore_tastypie_social.manticore_tastypie_social.utils import post_social_media
-                    post_social_media.apply_async((user_social_auth, bundle.obj), countdown=settings.SOCIAL_SHARE_DELAY)
+                    post_social_media.apply_async((user_social_auth, bundle.obj.pk), countdown=settings.SOCIAL_SHARE_DELAY)
                 except UserSocialAuth.DoesNotExist:
                     pass
         return bundle
@@ -337,7 +337,7 @@ class SocialShareResource(ManticoreModelResource):
 
             # Inline import to remove recursive importing
             from manticore_tastypie_social.manticore_tastypie_social.utils import post_social_media
-            post_social_media.delay(user_social_auth, bundle.obj)
+            post_social_media.delay(user_social_auth, bundle.obj.pk)
         except UserSocialAuth.DoesNotExist:
             return self.error_response(request, {"error": "User is not authenticated with %s" % bundle.data['provider']}, response_class=http.HttpBadRequest)
         except BadRequest, e:
