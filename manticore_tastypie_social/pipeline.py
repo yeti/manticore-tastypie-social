@@ -30,10 +30,11 @@ def social_auth_user(strategy, uid, user=None, *args, **kwargs):
             'new_association': False}
 
 
-def get_profile_image(strategy, details, response, uid, user, social, *args, **kwargs):
+def get_profile_image(strategy, details, response, uid, user, social, is_new=False, *args, **kwargs):
     """Attempt to get a profile image for the User"""
 
-    if user is None:
+    # If we don't have a user or the user isn't new then just return
+    if user is None or not is_new:
         return
 
     # Save photo from FB
