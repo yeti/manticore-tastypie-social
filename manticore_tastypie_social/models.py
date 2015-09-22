@@ -234,7 +234,7 @@ def create_notifications(sender, **kwargs):
         user = kwargs['instance']
         NotificationSetting.objects.bulk_create([NotificationSetting(user=user, notification_type=pk) for pk, name in Notification.TYPES])
 
-post_save.connect(create_notifications)
+post_save.connect(create_notifications, dispatch_uid="create_notification_settings")
 
 
 class FriendAction(CoreModel):
