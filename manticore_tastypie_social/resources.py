@@ -4,6 +4,7 @@ from django.conf.urls import url
 from django.contrib.auth import get_user_model
 from django.contrib.contenttypes.models import ContentType
 import requests
+from social.apps.django_app import load_strategy
 from social.apps.django_app.default.models import UserSocialAuth
 from tastypie import fields, http
 from tastypie.authentication import MultiAuthentication, Authentication
@@ -22,7 +23,7 @@ from manticore_tastypie_user.manticore_tastypie_user.authentication import Expir
 from manticore_tastypie_user.manticore_tastypie_user.authorization import UserObjectsOnlyAuthorization, \
     RelateUserAuthorization
 from manticore_tastypie_user.manticore_tastypie_user.resources import UserResource, MinimalUserResource, \
-    SearchUserResource
+    SearchUserResource, AuthUserResource, BaseUserResource
 
 User = get_user_model()
 
@@ -382,3 +383,44 @@ class FacebookFriendsResource(SearchUserResource):
             print e
 
         return qs.distinct().filter(pk__in=user_ids)
+
+
+class SocialSignUpResource(AuthUserResource):
+
+    class Meta(BaseUserResource.Meta):
+        queryset = User.objects.all()
+        allowed_methods = ['post']
+        authentication = MultiAuthentication(ExpireApiKeyAuthentication(), Authentication())
+        authorization = Authorization()
+        resource_name = "social_sign_up"
+        always_return_data = True
+        object_name = "user"
+
+    def obj_create(self, bundle, request=None, **kwargs):
+        provider = bundle.data['provider']
+        access_token = bundle.data['access_token']
+
+        # If this request was made with an authenticated user, try to associate this social account with it
+        user = bundle.request.user if not bundle.request.user.is_anonymous() else None
+
+        strategy = load_strategy(backend=provider)
+
+        # backend = get_backend(settings.AUTHENTICATION_BACKENDS, provider)
+        user = strategy.backend.do_auth(access_token, user=user)
+        if user and user.is_active:
+            bundle.obj = user
+            return bundle
+        else:
+            raise BadRequest("Error authenticating token")
+
+
+class UserSocialAuthenticationResource(ManticoreModelResource):
+
+    class Meta:
+        queryset = UserSocialAuth.objects.all()
+        allowed_methods = ['get']
+        authorization = UserObjectsOnlyAuthorization()
+        authentication = ExpireApiKeyAuthentication()
+        resource_name = "user_social_auth"
+        object_name = "user_social_auth"
+        fields = ['id', 'provider']
