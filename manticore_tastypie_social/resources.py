@@ -31,7 +31,7 @@ class TagResource(ManticoreModelResource):
 
 
 class CommentResource(ManticoreModelResource):
-    user_profile = fields.ToOneField(MinimalUserProfileResource, 'user_profile', full=True)
+    user_profile = fields.ToOneField(MinimalUserProfileResource, 'user_profile', full=True, readonly=True)
 
     class Meta:
         queryset = Comment.objects.all()
@@ -49,7 +49,7 @@ class CommentResource(ManticoreModelResource):
 
 
 class CreateFollowResource(ManticoreModelResource):
-    user_profile = fields.ToOneField(UserProfileResource, 'user_profile')
+    user_profile = fields.ToOneField(UserProfileResource, 'user_profile', readonly=True)
 
     class Meta:
         queryset = Follow.objects.all()
@@ -83,7 +83,7 @@ class FollowResource(ManticoreModelResource):
 
 
 class LikeResource(ManticoreModelResource):
-    user_profile = fields.ToOneField(UserProfileResource, 'user_profile')
+    user_profile = fields.ToOneField(UserProfileResource, 'user_profile', readonly=True)
 
     class Meta:
         queryset = Like.objects.all()
@@ -101,7 +101,7 @@ class LikeResource(ManticoreModelResource):
 
 
 class FlagResource(ManticoreModelResource):
-    user_profile = fields.ToOneField(UserProfileResource, 'user_profile')
+    user_profile = fields.ToOneField(UserProfileResource, 'user_profile', readonly=True)
 
     class Meta:
         queryset = Flag.objects.all()
