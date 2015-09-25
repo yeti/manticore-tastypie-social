@@ -1,9 +1,9 @@
 from datetime import timedelta
 from django.conf import settings
-from mezzanine.accounts import get_profile_model
+from django.contrib.auth import get_user_model
 from tastypie import fields
 from tastypie.authentication import MultiAuthentication, Authentication
-from tastypie.authorization import Authorization, ReadOnlyAuthorization
+from tastypie.authorization import Authorization
 from tastypie.exceptions import BadRequest
 from tastypie.utils import now
 import urbanairship
@@ -13,7 +13,7 @@ from manticore_tastypie_user.manticore_tastypie_user.authentication import Expir
 from manticore_tastypie_user.manticore_tastypie_user.authorization import UserProfileObjectsOnlyAuthorization
 from manticore_tastypie_user.manticore_tastypie_user.resources import UserProfileResource, MinimalUserProfileResource
 
-UserProfile = get_profile_model()
+UserProfile = get_user_model()
 
 
 class TagResource(ManticoreModelResource):
@@ -133,7 +133,7 @@ class AirshipTokenResource(ManticoreModelResource):
                 # Delete other usages of this token (i.e. multiple accounts on one device)
                 AirshipToken.objects.filter(token=bundle.data['token']).delete()
 
-                bundle.obj = AirshipToken(user_profile=bundle.request.user.get_profile(), token=bundle.data['token'])
+                bundle.obj = AirshipToken(user_profile=bundle.request.user.userprofile, token=bundle.data['token'])
                 bundle.obj.save()
             except urbanairship.AirshipFailure:
                 raise BadRequest("Failed Authentication")

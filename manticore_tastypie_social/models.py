@@ -5,11 +5,11 @@ from django.contrib.contenttypes import generic
 from django.contrib.contenttypes.models import ContentType
 from django.db import models
 from django.db.models.signals import post_save
-from mezzanine.accounts import get_profile_model
 from model_utils import Choices
 import urbanairship
 from manticore_django.manticore_django.models import CoreModel
 from django.utils.translation import ugettext_lazy as _
+
 
 class FollowableModel():
     """
@@ -62,10 +62,10 @@ def relate_tags(sender, **kwargs):
 
 
 def mentions(sender, **kwargs):
+    from forecast.models import UserProfile
     if kwargs['created']:
         message = getattr(kwargs['instance'], sender.TAG_FIELD, '')
 
-        UserProfile = get_profile_model()
         for user_profile in re.findall(ur"@[a-zA-Z0-9_.]+", message):
             try:
                 receiver = UserProfile.objects.get(user__username=user_profile[1:])
@@ -80,7 +80,7 @@ class Comment(CoreModel):
     content_object = generic.GenericForeignKey()
 
     description = models.CharField(max_length=140)
-    user_profile = models.ForeignKey(settings.AUTH_PROFILE_MODULE)
+    user_profile = models.ForeignKey("forecast.UserProfile")
 
     #TODO: Not project agnostic
     legacy_comment_id = models.CharField(max_length=50, unique=True, db_index=True, blank=True, null=True)
@@ -90,9 +90,9 @@ class Comment(CoreModel):
 
 
 def comment_post_save(sender, **kwargs):
+    from forecast.models import UserProfile
     if kwargs['created']:
         comment = kwargs['instance']
-        UserProfile = get_profile_model()
         for user_profile in re.findall(ur"@[a-zA-Z0-9_.]+", comment.description):
             try:
                 receiver = UserProfile.objects.get(user__username=user_profile[1:])
@@ -109,7 +109,7 @@ class Follow(CoreModel):
     object_id = models.CharField(max_length=250, db_index=True)
     content_object = generic.GenericForeignKey()
 
-    user_profile = models.ForeignKey(settings.AUTH_PROFILE_MODULE)
+    user_profile = models.ForeignKey("forecast.UserProfile")
 
     @property
     def object_type(self):
@@ -130,7 +130,7 @@ class Like(CoreModel):
     object_id = models.PositiveIntegerField(db_index=True)
     content_object = generic.GenericForeignKey()
 
-    user_profile = models.ForeignKey(settings.AUTH_PROFILE_MODULE)
+    user_profile = models.ForeignKey("forecast.UserProfile")
 
     class Meta:
         unique_together = (("user_profile", "content_type", "object_id"),)
@@ -142,7 +142,7 @@ class Flag(CoreModel):
     object_id = models.PositiveIntegerField()
     content_object = generic.GenericForeignKey()
 
-    user_profile = models.ForeignKey(settings.AUTH_PROFILE_MODULE)
+    user_profile = models.ForeignKey("forecast.UserProfile")
 
     class Meta:
         unique_together = (("user_profile", "content_type", "object_id"),)
@@ -150,7 +150,7 @@ class Flag(CoreModel):
 
 # Stores user tokens from Urban Airship
 class AirshipToken(CoreModel):
-    user_profile = models.ForeignKey(settings.AUTH_PROFILE_MODULE)
+    user_profile = models.ForeignKey("forecast.UserProfile")
     token = models.CharField(max_length=100)
     expired = models.BooleanField(default=False)
 
@@ -167,8 +167,8 @@ class Notification(CoreModel):
         (6, 'friend', _('your friend just signed up')),
     )
     notification_type = models.PositiveSmallIntegerField(choices=TYPES)
-    user_profile = models.ForeignKey(settings.AUTH_PROFILE_MODULE, related_name="receiver")
-    reporter = models.ForeignKey(settings.AUTH_PROFILE_MODULE, related_name="reporter", null=True, blank=True)
+    user_profile = models.ForeignKey("forecast.UserProfile", related_name="receiver")
+    reporter = models.ForeignKey("forecast.UserProfile", related_name="reporter", null=True, blank=True)
 
     content_type = models.ForeignKey(ContentType)
     object_id = models.PositiveIntegerField(db_index=True)
@@ -221,7 +221,7 @@ def create_notification(receiver, reporter, content_object, notification_type):
 
 class NotificationSetting(CoreModel):
     notification_type = models.PositiveSmallIntegerField(choices=Notification.TYPES)
-    user_profile = models.ForeignKey(settings.AUTH_PROFILE_MODULE)
+    user_profile = models.ForeignKey("forecast.UserProfile")
     allow = models.BooleanField(default=True)
 
     class Meta:
@@ -236,7 +236,7 @@ class NotificationSetting(CoreModel):
 
 def create_notifications(sender, **kwargs):
     sender_name = "%s.%s" % (sender._meta.app_label, sender._meta.object_name)
-    if sender_name.lower() != settings.AUTH_PROFILE_MODULE.lower():
+    if sender_name.lower() != "forecast.userprofile":
         return
 
     if kwargs['created']:
@@ -254,7 +254,7 @@ class FriendAction(CoreModel):
         (2, 'comment', _('commented on a report')),
     )
     action_type = models.PositiveSmallIntegerField(choices=TYPES)
-    user_profile = models.ForeignKey(settings.AUTH_PROFILE_MODULE)
+    user_profile = models.ForeignKey("forecast.UserProfile")
 
     content_type = models.ForeignKey(ContentType)
     object_id = models.PositiveIntegerField(db_index=True)
