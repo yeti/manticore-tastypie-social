@@ -75,7 +75,7 @@ def mentions(sender, **kwargs):
 
 
 class Comment(CoreModel):
-    content_type = models.ForeignKey(ContentType)
+    content_type = models.ForeignKey(ContentType,related_name="wm_comment")
     object_id = models.PositiveIntegerField(db_index=True)
     content_object = generic.GenericForeignKey()
 
@@ -105,7 +105,7 @@ post_save.connect(comment_post_save, sender=Comment)
 
 # Allows a user to 'follow' objects
 class Follow(CoreModel):
-    content_type = models.ForeignKey(ContentType)
+    content_type = models.ForeignKey(ContentType, related_name="wm_follow")
     object_id = models.CharField(max_length=250, db_index=True)
     content_object = generic.GenericForeignKey()
 
@@ -126,7 +126,7 @@ class Follow(CoreModel):
 
 
 class Like(CoreModel):
-    content_type = models.ForeignKey(ContentType)
+    content_type = models.ForeignKey(ContentType, related_name="wm_like")
     object_id = models.PositiveIntegerField(db_index=True)
     content_object = generic.GenericForeignKey()
 
@@ -138,7 +138,7 @@ class Like(CoreModel):
 
 # Flag an object for review
 class Flag(CoreModel):
-    content_type = models.ForeignKey(ContentType)
+    content_type = models.ForeignKey(ContentType, related_name="wm_flag")
     object_id = models.PositiveIntegerField()
     content_object = generic.GenericForeignKey()
 
@@ -191,7 +191,7 @@ class Notification(CoreModel):
         return message
 
     def name(self):
-        return u"%s" % Notification.TYPES._full[self.notification_type][1]
+        return u"%s" % Notification.TYPES._triples[self.notification_type][1]
 
     def display_name(self):
         return u"%s" % self.get_notification_type_display()
@@ -228,7 +228,7 @@ class NotificationSetting(CoreModel):
         unique_together = ('notification_type', 'user_profile')
 
     def name(self):
-        return u"%s" % Notification.TYPES._full[self.notification_type][1]
+        return u"%s" % Notification.TYPES._triples[self.notification_type][1]
 
     def display_name(self):
         return u"%s" % self.get_notification_type_display()
@@ -264,7 +264,7 @@ class FriendAction(CoreModel):
         return unicode(Notification.TYPES[self.action_type][1])
 
     def name(self):
-        return u"%s" % Notification.TYPES._full[self.action_type][1]
+        return u"%s" % Notification.TYPES._triples[self.action_type][1]
 
     def display_name(self):
         return u"%s" % self.get_action_type_display()
